@@ -1,0 +1,2094 @@
+{
+  "version": "3.0",
+  "description": "Comprehensive quality benchmark — 25 tests × 4 categories + 10 MCP tests (110 total)",
+  "categories": {
+    "reasoning": "Numeric and logical reasoning, multi-step problems",
+    "coding": "Python function generation with automated execution-based evaluation",
+    "agentic": "Tool-call selection from a 5-tool palette (read_file, web_search, send_email, execute_python, query_database)",
+    "summarization": "Instruction following, fact extraction, format compliance",
+    "mcp": "Model Context Protocol — structured JSON tool calls with typed schemas, enum params, and tool disambiguation"
+  },
+  "context_window_notes": {
+    "recommended_num_ctx": 8192,
+    "note": "MCP tests include tool schemas in the system prompt (~200-400 extra tokens each). Real MCP workflows with multi-turn conversations and 5+ tools require 8192+ tokens. The default 4096 context window is often insufficient for complex agentic/MCP tasks."
+  },
+  "tests": [
+    {
+      "id": "r01",
+      "name": "arithmetic_basic",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "Calculate: 17 × 23. Reply with the number only, no explanation.",
+      "expected_number": 391,
+      "tolerance": 0.001,
+      "max_tokens": 15
+    },
+    {
+      "id": "r02",
+      "name": "speed_calculation",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "A car travels 240 km in 3 hours. What is its average speed in km/h? Answer with the number only.",
+      "expected_number": 80,
+      "tolerance": 0.01,
+      "max_tokens": 20
+    },
+    {
+      "id": "r03",
+      "name": "multi_step_inventory",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "medium",
+      "prompt": "A store starts with 150 items. It sells 30% on Monday, then sells 20% of the remaining items on Tuesday. How many items are left after Tuesday? Show your working, then state the final number.",
+      "expected_number": 84,
+      "tolerance": 0.01,
+      "max_tokens": 250
+    },
+    {
+      "id": "r04",
+      "name": "compound_interest",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "hard",
+      "prompt": "£1000 is invested at 5% annual compound interest. What is the total value after 3 years? Round to 2 decimal places. Answer with the number only.",
+      "expected_number": 1157.63,
+      "tolerance": 0.005,
+      "max_tokens": 30
+    },
+    {
+      "id": "r05",
+      "name": "percentage_of_number",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "What is 15% of 240? Answer with the number only.",
+      "expected_number": 36,
+      "tolerance": 0.001,
+      "max_tokens": 10
+    },
+    {
+      "id": "r06",
+      "name": "logic_puzzle_pets",
+      "category": "reasoning",
+      "eval_type": "contains_all",
+      "difficulty": "medium",
+      "prompt": "Alice, Bob, and Carol each own exactly one pet: a cat, a dog, or a fish.\nClues:\n1. Alice does NOT have the cat.\n2. Bob does NOT have the fish.\n3. Carol does NOT have the dog.\nReason through this step by step, then state who has which pet.",
+      "required_facts": [
+        "alice",
+        "dog",
+        "bob",
+        "cat",
+        "carol",
+        "fish"
+      ],
+      "max_tokens": 350
+    },
+    {
+      "id": "r07",
+      "name": "next_prime",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "What is the smallest prime number greater than 47? Answer with the number only.",
+      "expected_number": 53,
+      "tolerance": 0.001,
+      "max_tokens": 10
+    },
+    {
+      "id": "r08",
+      "name": "unit_conversion_km",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "Convert 5.5 kilometres to metres. Answer with the number only.",
+      "expected_number": 5500,
+      "tolerance": 0.001,
+      "max_tokens": 15
+    },
+    {
+      "id": "r09",
+      "name": "combined_work_rate",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "medium",
+      "prompt": "Alice can complete a job alone in 4 hours. Bob can complete the same job alone in 6 hours. If they work together without interruption, how many hours does it take? Give your answer as a decimal rounded to 1 decimal place. Answer with the number only.",
+      "expected_number": 2.4,
+      "tolerance": 0.02,
+      "max_tokens": 200
+    },
+    {
+      "id": "r10",
+      "name": "fibonacci_next",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "What is the next number in this sequence: 1, 1, 2, 3, 5, 8, 13, ? Answer with the number only.",
+      "expected_number": 21,
+      "tolerance": 0.001,
+      "max_tokens": 10
+    },
+    {
+      "id": "r11",
+      "name": "temperature_fahrenheit_to_celsius",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "Convert 98.6°F to Celsius using C = (F - 32) × 5/9. Round to 1 decimal place. Answer with the number only.",
+      "expected_number": 37.0,
+      "tolerance": 0.05,
+      "max_tokens": 20
+    },
+    {
+      "id": "r12",
+      "name": "circle_area",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "A circle has a radius of 7. What is its area? Use π = 3.14159. Round to 2 decimal places. Answer with the number only.",
+      "expected_number": 153.94,
+      "tolerance": 0.02,
+      "max_tokens": 25
+    },
+    {
+      "id": "r13",
+      "name": "geometric_sequence",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "What is the next number in this sequence: 3, 6, 12, 24, ? Answer with the number only.",
+      "expected_number": 48,
+      "tolerance": 0.001,
+      "max_tokens": 10
+    },
+    {
+      "id": "r14",
+      "name": "age_puzzle",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "medium",
+      "prompt": "Alice is currently twice as old as Bob. In 5 years, Alice will be 1.5 times as old as Bob. How old is Alice now? Show your reasoning, then state the final number.",
+      "expected_number": 10,
+      "tolerance": 0.001,
+      "max_tokens": 250
+    },
+    {
+      "id": "r15",
+      "name": "fraction_to_decimal",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "What is 3/8 as a decimal? Answer with the number only.",
+      "expected_number": 0.375,
+      "tolerance": 0.001,
+      "max_tokens": 10
+    },
+    {
+      "id": "r16",
+      "name": "probability_marbles",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "A bag contains 3 red marbles and 7 blue marbles. If you pick one marble at random, what is the probability of picking a red marble? Give your answer as a decimal. Answer with the number only.",
+      "expected_number": 0.3,
+      "tolerance": 0.001,
+      "max_tokens": 15
+    },
+    {
+      "id": "r17",
+      "name": "pythagorean_theorem",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "A right triangle has legs of length 3 and 4. What is the length of the hypotenuse? Answer with the number only.",
+      "expected_number": 5.0,
+      "tolerance": 0.001,
+      "max_tokens": 10
+    },
+    {
+      "id": "r18",
+      "name": "average_scores",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "What is the average (mean) of these five test scores: 75, 80, 90, 85, 80? Answer with the number only.",
+      "expected_number": 82.0,
+      "tolerance": 0.001,
+      "max_tokens": 15
+    },
+    {
+      "id": "r19",
+      "name": "discount_price",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "A jacket originally costs $75. It is on sale for 20% off. What is the sale price in dollars? Answer with the number only.",
+      "expected_number": 60.0,
+      "tolerance": 0.001,
+      "max_tokens": 15
+    },
+    {
+      "id": "r20",
+      "name": "time_to_seconds",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "How many seconds are in 2.5 hours? Answer with the number only.",
+      "expected_number": 9000,
+      "tolerance": 0.001,
+      "max_tokens": 15
+    },
+    {
+      "id": "r21",
+      "name": "simple_interest",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "$500 is invested at a simple interest rate of 6% per year. What is the total amount (principal + interest) after 1 year? Answer with the number only.",
+      "expected_number": 530.0,
+      "tolerance": 0.001,
+      "max_tokens": 20
+    },
+    {
+      "id": "r22",
+      "name": "taxi_fare",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "A taxi charges a base fare of $2.50 plus $1.50 per mile. What is the total fare for a 4-mile trip? Answer with the number only.",
+      "expected_number": 8.5,
+      "tolerance": 0.001,
+      "max_tokens": 15
+    },
+    {
+      "id": "r23",
+      "name": "sum_one_to_ten",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "What is the sum of all integers from 1 to 10 inclusive? Answer with the number only.",
+      "expected_number": 55,
+      "tolerance": 0.001,
+      "max_tokens": 10
+    },
+    {
+      "id": "r24",
+      "name": "roman_numerals_xlvii",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "What is XLVII in Arabic (Hindu-Arabic) numerals? Answer with the number only.",
+      "expected_number": 47,
+      "tolerance": 0.001,
+      "max_tokens": 10
+    },
+    {
+      "id": "r25",
+      "name": "logic_mislabeled_boxes",
+      "category": "reasoning",
+      "eval_type": "contains_all",
+      "difficulty": "hard",
+      "prompt": "Three boxes are labeled 'APPLES', 'ORANGES', and 'MIXED'. All three labels are wrong.\nYou reach into the box labeled 'MIXED' and pull out an apple.\nWhat does the box labeled 'APPLES' actually contain? Think step by step, then give your final answer.",
+      "required_facts": [
+        "oranges"
+      ],
+      "max_tokens": 400
+    },
+    {
+      "id": "c01",
+      "name": "fibonacci",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `fibonacci(n: int) -> int` that returns the nth Fibonacci number (0-indexed: fibonacci(0)=0, fibonacci(1)=1, fibonacci(2)=1, fibonacci(7)=13). Output only the function definition, no tests, no main block.",
+      "function_name": "fibonacci",
+      "test_cases": [
+        {
+          "call": "fibonacci(0)",
+          "expected": 0
+        },
+        {
+          "call": "fibonacci(1)",
+          "expected": 1
+        },
+        {
+          "call": "fibonacci(2)",
+          "expected": 1
+        },
+        {
+          "call": "fibonacci(7)",
+          "expected": 13
+        },
+        {
+          "call": "fibonacci(10)",
+          "expected": 55
+        }
+      ],
+      "max_tokens": 300
+    },
+    {
+      "id": "c02",
+      "name": "palindrome_check",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `is_palindrome(s: str) -> bool` that returns True if the string is a palindrome (ignore case, ignore spaces). Output only the function definition.",
+      "function_name": "is_palindrome",
+      "test_cases": [
+        {
+          "call": "is_palindrome('racecar')",
+          "expected": true
+        },
+        {
+          "call": "is_palindrome('hello')",
+          "expected": false
+        },
+        {
+          "call": "is_palindrome('A man a plan a canal Panama')",
+          "expected": true
+        },
+        {
+          "call": "is_palindrome('')",
+          "expected": true
+        },
+        {
+          "call": "is_palindrome('No lemon no melon')",
+          "expected": true
+        }
+      ],
+      "max_tokens": 250
+    },
+    {
+      "id": "c03",
+      "name": "find_duplicates",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `find_duplicates(lst: list) -> list` that returns a sorted list of values that appear more than once in lst. Output only the function definition.",
+      "function_name": "find_duplicates",
+      "test_cases": [
+        {
+          "call": "find_duplicates([1, 2, 3, 2, 4, 3])",
+          "expected": [
+            2,
+            3
+          ]
+        },
+        {
+          "call": "find_duplicates([1, 2, 3])",
+          "expected": []
+        },
+        {
+          "call": "find_duplicates([])",
+          "expected": []
+        },
+        {
+          "call": "find_duplicates([5, 5, 5])",
+          "expected": [
+            5
+          ]
+        }
+      ],
+      "max_tokens": 300
+    },
+    {
+      "id": "c04",
+      "name": "flatten_nested_list",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `flatten(lst: list) -> list` that recursively flattens a nested list of arbitrary depth into a single flat list. Output only the function definition.",
+      "function_name": "flatten",
+      "test_cases": [
+        {
+          "call": "flatten([1, [2, 3], [4, [5, 6]]])",
+          "expected": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        },
+        {
+          "call": "flatten([])",
+          "expected": []
+        },
+        {
+          "call": "flatten([[1], [2], [3]])",
+          "expected": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "call": "flatten([1, [2, [3, [4]]]])",
+          "expected": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "max_tokens": 250
+    },
+    {
+      "id": "c05",
+      "name": "binary_search",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `binary_search(arr: list, target: int) -> int` that returns the index of target in the sorted array arr, or -1 if not found. Output only the function definition.",
+      "function_name": "binary_search",
+      "test_cases": [
+        {
+          "call": "binary_search([1, 3, 5, 7, 9, 11], 7)",
+          "expected": 3
+        },
+        {
+          "call": "binary_search([1, 3, 5, 7, 9, 11], 4)",
+          "expected": -1
+        },
+        {
+          "call": "binary_search([], 5)",
+          "expected": -1
+        },
+        {
+          "call": "binary_search([42], 42)",
+          "expected": 0
+        }
+      ],
+      "max_tokens": 300
+    },
+    {
+      "id": "c06",
+      "name": "most_frequent_element",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `most_frequent(lst: list)` that returns the element appearing most often. On a tie, return the smallest value. Output only the function definition.",
+      "function_name": "most_frequent",
+      "test_cases": [
+        {
+          "call": "most_frequent([1, 2, 2, 3, 3, 3])",
+          "expected": 3
+        },
+        {
+          "call": "most_frequent([4, 4, 5, 5])",
+          "expected": 4
+        },
+        {
+          "call": "most_frequent([7])",
+          "expected": 7
+        },
+        {
+          "call": "most_frequent(['a', 'b', 'a'])",
+          "expected": "a"
+        }
+      ],
+      "max_tokens": 300
+    },
+    {
+      "id": "c07",
+      "name": "two_sum",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `two_sum(nums: list, target: int) -> list` that returns the indices [i, j] (i < j) of two numbers that add up to target. Assume exactly one solution exists. Output only the function definition.",
+      "function_name": "two_sum",
+      "test_cases": [
+        {
+          "call": "two_sum([2, 7, 11, 15], 9)",
+          "expected": [
+            0,
+            1
+          ]
+        },
+        {
+          "call": "two_sum([3, 2, 4], 6)",
+          "expected": [
+            1,
+            2
+          ]
+        },
+        {
+          "call": "two_sum([1, 5, 3, 7], 12)",
+          "expected": [
+            1,
+            3
+          ]
+        }
+      ],
+      "max_tokens": 350
+    },
+    {
+      "id": "c08",
+      "name": "count_vowels",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `count_vowels(s: str) -> int` that returns the number of vowels (a, e, i, o, u) in the string, case-insensitive. Output only the function definition.",
+      "function_name": "count_vowels",
+      "test_cases": [
+        {
+          "call": "count_vowels('Hello World')",
+          "expected": 3
+        },
+        {
+          "call": "count_vowels('')",
+          "expected": 0
+        },
+        {
+          "call": "count_vowels('AEIOU')",
+          "expected": 5
+        },
+        {
+          "call": "count_vowels('rhythm')",
+          "expected": 0
+        },
+        {
+          "call": "count_vowels('Python')",
+          "expected": 1
+        }
+      ],
+      "max_tokens": 200
+    },
+    {
+      "id": "c09",
+      "name": "is_prime",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `is_prime(n: int) -> bool` that returns True if n is a prime number, False otherwise. Handle n < 2 correctly. Output only the function definition.",
+      "function_name": "is_prime",
+      "test_cases": [
+        {
+          "call": "is_prime(2)",
+          "expected": true
+        },
+        {
+          "call": "is_prime(1)",
+          "expected": false
+        },
+        {
+          "call": "is_prime(17)",
+          "expected": true
+        },
+        {
+          "call": "is_prime(15)",
+          "expected": false
+        },
+        {
+          "call": "is_prime(0)",
+          "expected": false
+        },
+        {
+          "call": "is_prime(97)",
+          "expected": true
+        }
+      ],
+      "max_tokens": 250
+    },
+    {
+      "id": "c10",
+      "name": "rotate_list_right",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `rotate(lst: list, k: int) -> list` that returns a new list rotated to the RIGHT by k positions. Example: rotate([1,2,3,4,5], 2) → [4,5,1,2,3]. Handle empty lists and k larger than len(lst). Output only the function definition.",
+      "function_name": "rotate",
+      "test_cases": [
+        {
+          "call": "rotate([1, 2, 3, 4, 5], 2)",
+          "expected": [
+            4,
+            5,
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "call": "rotate([1, 2, 3], 0)",
+          "expected": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "call": "rotate([1, 2, 3], 3)",
+          "expected": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "call": "rotate([1], 5)",
+          "expected": [
+            1
+          ]
+        },
+        {
+          "call": "rotate([7, 8, 9], 1)",
+          "expected": [
+            9,
+            7,
+            8
+          ]
+        }
+      ],
+      "max_tokens": 300
+    },
+    {
+      "id": "c11",
+      "name": "reverse_string",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `reverse_string(s: str) -> str` that returns the string reversed. Output only the function definition.",
+      "function_name": "reverse_string",
+      "test_cases": [
+        {
+          "call": "reverse_string('hello')",
+          "expected": "olleh"
+        },
+        {
+          "call": "reverse_string('')",
+          "expected": ""
+        },
+        {
+          "call": "reverse_string('a')",
+          "expected": "a"
+        },
+        {
+          "call": "reverse_string('Python')",
+          "expected": "nohtyP"
+        },
+        {
+          "call": "reverse_string('abcd')",
+          "expected": "dcba"
+        }
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "c12",
+      "name": "sum_of_digits",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `sum_of_digits(n: int) -> int` that returns the sum of all digits of a non-negative integer n. Output only the function definition.",
+      "function_name": "sum_of_digits",
+      "test_cases": [
+        {
+          "call": "sum_of_digits(123)",
+          "expected": 6
+        },
+        {
+          "call": "sum_of_digits(0)",
+          "expected": 0
+        },
+        {
+          "call": "sum_of_digits(9)",
+          "expected": 9
+        },
+        {
+          "call": "sum_of_digits(999)",
+          "expected": 27
+        },
+        {
+          "call": "sum_of_digits(1001)",
+          "expected": 2
+        }
+      ],
+      "max_tokens": 200
+    },
+    {
+      "id": "c13",
+      "name": "count_words",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `count_words(s: str) -> int` that returns the number of words in the string. Words are separated by whitespace; ignore extra spaces. Output only the function definition.",
+      "function_name": "count_words",
+      "test_cases": [
+        {
+          "call": "count_words('hello world')",
+          "expected": 2
+        },
+        {
+          "call": "count_words('')",
+          "expected": 0
+        },
+        {
+          "call": "count_words('one')",
+          "expected": 1
+        },
+        {
+          "call": "count_words('  spaces  between  words  ')",
+          "expected": 3
+        },
+        {
+          "call": "count_words('a b c d e')",
+          "expected": 5
+        }
+      ],
+      "max_tokens": 200
+    },
+    {
+      "id": "c14",
+      "name": "celsius_to_fahrenheit",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `celsius_to_fahrenheit(c: float) -> float` that converts Celsius to Fahrenheit using F = c * 9/5 + 32. Output only the function definition.",
+      "function_name": "celsius_to_fahrenheit",
+      "test_cases": [
+        {
+          "call": "celsius_to_fahrenheit(0)",
+          "expected": 32.0
+        },
+        {
+          "call": "celsius_to_fahrenheit(100)",
+          "expected": 212.0
+        },
+        {
+          "call": "celsius_to_fahrenheit(-40)",
+          "expected": -40.0
+        },
+        {
+          "call": "celsius_to_fahrenheit(37)",
+          "expected": 98.6
+        }
+      ],
+      "max_tokens": 200
+    },
+    {
+      "id": "c15",
+      "name": "max_difference",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `max_difference(lst: list) -> int` that returns the difference between the maximum and minimum values in the list. Assume the list has at least one element. Output only the function definition.",
+      "function_name": "max_difference",
+      "test_cases": [
+        {
+          "call": "max_difference([3, 1, 4, 1, 5, 9])",
+          "expected": 8
+        },
+        {
+          "call": "max_difference([1])",
+          "expected": 0
+        },
+        {
+          "call": "max_difference([5, 5])",
+          "expected": 0
+        },
+        {
+          "call": "max_difference([10, 3, 7, 2])",
+          "expected": 8
+        },
+        {
+          "call": "max_difference([-5, 0, 5])",
+          "expected": 10
+        }
+      ],
+      "max_tokens": 200
+    },
+    {
+      "id": "c16",
+      "name": "remove_duplicates",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `remove_duplicates(lst: list) -> list` that returns a new list with duplicates removed while preserving the original order of first occurrences. Output only the function definition.",
+      "function_name": "remove_duplicates",
+      "test_cases": [
+        {
+          "call": "remove_duplicates([1, 2, 2, 3, 3, 4])",
+          "expected": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "call": "remove_duplicates([])",
+          "expected": []
+        },
+        {
+          "call": "remove_duplicates([1])",
+          "expected": [
+            1
+          ]
+        },
+        {
+          "call": "remove_duplicates([3, 1, 4, 1, 5, 9, 2, 6, 5])",
+          "expected": [
+            3,
+            1,
+            4,
+            5,
+            9,
+            2,
+            6
+          ]
+        }
+      ],
+      "max_tokens": 200
+    },
+    {
+      "id": "c17",
+      "name": "is_anagram",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `is_anagram(s1: str, s2: str) -> bool` that returns True if s1 and s2 are anagrams of each other (same letters, any order, case-insensitive). Output only the function definition.",
+      "function_name": "is_anagram",
+      "test_cases": [
+        {
+          "call": "is_anagram('listen', 'silent')",
+          "expected": true
+        },
+        {
+          "call": "is_anagram('hello', 'world')",
+          "expected": false
+        },
+        {
+          "call": "is_anagram('', '')",
+          "expected": true
+        },
+        {
+          "call": "is_anagram('triangle', 'integral')",
+          "expected": true
+        },
+        {
+          "call": "is_anagram('abc', 'ab')",
+          "expected": false
+        }
+      ],
+      "max_tokens": 200
+    },
+    {
+      "id": "c18",
+      "name": "capitalize_words",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "easy",
+      "prompt": "Write a Python function `capitalize_words(s: str) -> str` that returns the string with the first letter of each word capitalized and the rest lowercased. Output only the function definition.",
+      "function_name": "capitalize_words",
+      "test_cases": [
+        {
+          "call": "capitalize_words('hello world')",
+          "expected": "Hello World"
+        },
+        {
+          "call": "capitalize_words('')",
+          "expected": ""
+        },
+        {
+          "call": "capitalize_words('python programming language')",
+          "expected": "Python Programming Language"
+        },
+        {
+          "call": "capitalize_words('already Capitalized')",
+          "expected": "Already Capitalized"
+        }
+      ],
+      "max_tokens": 200
+    },
+    {
+      "id": "c19",
+      "name": "merge_sorted",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `merge_sorted(a: list, b: list) -> list` that merges two sorted lists into a single sorted list without using the built-in sort(). Output only the function definition.",
+      "function_name": "merge_sorted",
+      "test_cases": [
+        {
+          "call": "merge_sorted([1, 3, 5], [2, 4, 6])",
+          "expected": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        },
+        {
+          "call": "merge_sorted([], [1, 2, 3])",
+          "expected": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "call": "merge_sorted([1, 2, 3], [])",
+          "expected": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "call": "merge_sorted([1, 1, 2], [1, 3])",
+          "expected": [
+            1,
+            1,
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "max_tokens": 300
+    },
+    {
+      "id": "c20",
+      "name": "gcd",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `gcd(a: int, b: int) -> int` that returns the greatest common divisor of two positive integers using the Euclidean algorithm. Output only the function definition.",
+      "function_name": "gcd",
+      "test_cases": [
+        {
+          "call": "gcd(12, 8)",
+          "expected": 4
+        },
+        {
+          "call": "gcd(48, 18)",
+          "expected": 6
+        },
+        {
+          "call": "gcd(7, 5)",
+          "expected": 1
+        },
+        {
+          "call": "gcd(100, 75)",
+          "expected": 25
+        },
+        {
+          "call": "gcd(17, 17)",
+          "expected": 17
+        }
+      ],
+      "max_tokens": 250
+    },
+    {
+      "id": "c21",
+      "name": "max_subarray_sum",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "hard",
+      "prompt": "Write a Python function `max_subarray_sum(nums: list) -> int` that returns the sum of the contiguous subarray with the largest sum (Kadane's algorithm). Assume at least one element. Output only the function definition.",
+      "function_name": "max_subarray_sum",
+      "test_cases": [
+        {
+          "call": "max_subarray_sum([-2, 1, -3, 4, -1, 2, 1, -5, 4])",
+          "expected": 6
+        },
+        {
+          "call": "max_subarray_sum([1, 2, 3])",
+          "expected": 6
+        },
+        {
+          "call": "max_subarray_sum([5, -4, 8])",
+          "expected": 9
+        },
+        {
+          "call": "max_subarray_sum([-3, 1, 2, -1, 3, -2])",
+          "expected": 5
+        }
+      ],
+      "max_tokens": 350
+    },
+    {
+      "id": "c22",
+      "name": "longest_common_prefix",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `longest_common_prefix(strs: list) -> str` that returns the longest common prefix string from a list of strings. Return '' if there is none. Output only the function definition.",
+      "function_name": "longest_common_prefix",
+      "test_cases": [
+        {
+          "call": "longest_common_prefix(['flower', 'flow', 'flight'])",
+          "expected": "fl"
+        },
+        {
+          "call": "longest_common_prefix(['dog', 'car', 'race'])",
+          "expected": ""
+        },
+        {
+          "call": "longest_common_prefix(['interview', 'interact', 'interface'])",
+          "expected": "inter"
+        },
+        {
+          "call": "longest_common_prefix(['abc'])",
+          "expected": "abc"
+        },
+        {
+          "call": "longest_common_prefix([])",
+          "expected": ""
+        }
+      ],
+      "max_tokens": 300
+    },
+    {
+      "id": "c23",
+      "name": "valid_brackets",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `valid_brackets(s: str) -> bool` that returns True if all brackets in the string are correctly matched and nested. Supported brackets: (), [], {}. Output only the function definition.",
+      "function_name": "valid_brackets",
+      "test_cases": [
+        {
+          "call": "valid_brackets('()')",
+          "expected": true
+        },
+        {
+          "call": "valid_brackets('([{}])')",
+          "expected": true
+        },
+        {
+          "call": "valid_brackets('([)]')",
+          "expected": false
+        },
+        {
+          "call": "valid_brackets('')",
+          "expected": true
+        },
+        {
+          "call": "valid_brackets('{[}')",
+          "expected": false
+        },
+        {
+          "call": "valid_brackets('((()))')",
+          "expected": true
+        }
+      ],
+      "max_tokens": 300
+    },
+    {
+      "id": "c24",
+      "name": "chunk_list",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `chunk(lst: list, size: int) -> list` that splits lst into chunks of length size. The last chunk may be smaller. Return a list of lists. Output only the function definition.",
+      "function_name": "chunk",
+      "test_cases": [
+        {
+          "call": "chunk([1, 2, 3, 4, 5], 2)",
+          "expected": [
+            [
+              1,
+              2
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              5
+            ]
+          ]
+        },
+        {
+          "call": "chunk([], 3)",
+          "expected": []
+        },
+        {
+          "call": "chunk([1, 2, 3], 3)",
+          "expected": [
+            [
+              1,
+              2,
+              3
+            ]
+          ]
+        },
+        {
+          "call": "chunk([1, 2, 3, 4, 5, 6], 2)",
+          "expected": [
+            [
+              1,
+              2
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              5,
+              6
+            ]
+          ]
+        }
+      ],
+      "max_tokens": 250
+    },
+    {
+      "id": "c25",
+      "name": "running_average",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `running_average(nums: list) -> list` that returns a list of running averages. The i-th element is the average of nums[0..i] (inclusive). Return floats. Output only the function definition.",
+      "function_name": "running_average",
+      "test_cases": [
+        {
+          "call": "running_average([1, 2, 3, 4])",
+          "expected": [
+            1.0,
+            1.5,
+            2.0,
+            2.5
+          ]
+        },
+        {
+          "call": "running_average([])",
+          "expected": []
+        },
+        {
+          "call": "running_average([5])",
+          "expected": [
+            5.0
+          ]
+        },
+        {
+          "call": "running_average([2, 4, 6])",
+          "expected": [
+            2.0,
+            3.0,
+            4.0
+          ]
+        }
+      ],
+      "max_tokens": 250
+    },
+    {
+      "id": "a01",
+      "name": "tool_read_file",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "The user says: 'Please read the file at /data/sales_2024.csv'",
+      "expected_tool": "read_file",
+      "expected_args": {
+        "path": "/data/sales_2024.csv"
+      },
+      "required_args": [
+        "path"
+      ],
+      "max_tokens": 80
+    },
+    {
+      "id": "a02",
+      "name": "tool_web_search_gold",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "The user asks: 'What is the current price of gold per ounce?'",
+      "expected_tool": "web_search",
+      "expected_args": {},
+      "required_args": [
+        "query"
+      ],
+      "max_tokens": 80
+    },
+    {
+      "id": "a03",
+      "name": "tool_send_email_cfo",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Send an email to cfo@company.com with subject 'Q3 Report Ready' and body 'The Q3 financial report is now available for review.'",
+      "expected_tool": "send_email",
+      "expected_args": {
+        "to": "cfo@company.com"
+      },
+      "required_args": [
+        "to",
+        "subject",
+        "body"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "a04",
+      "name": "tool_execute_python",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Execute this Python snippet on the server: `print(sum(range(1, 101)))`",
+      "expected_tool": "execute_python",
+      "expected_args": {},
+      "required_args": [
+        "code"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "a05",
+      "name": "tool_query_database_sales",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Query the 'sales_db' database: get all order records from 2024 where the total amount exceeds 1000.",
+      "expected_tool": "query_database",
+      "expected_args": {},
+      "required_args": [
+        "sql",
+        "db"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "a06",
+      "name": "tool_read_file_annual",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "The user says: 'I need the annual report that's saved on disk at /reports/annual_2024.pdf — can you open it?' What is your first action?",
+      "expected_tool": "read_file",
+      "expected_args": {
+        "path": "/reports/annual_2024.pdf"
+      },
+      "required_args": [
+        "path"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "a07",
+      "name": "tool_execute_computation",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Calculate the SHA-256 hash of the string 'benchmark' using Python code and return the result.",
+      "expected_tool": "execute_python",
+      "expected_args": {},
+      "required_args": [
+        "code"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "a08",
+      "name": "tool_web_search_postgres",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "The user wants to know what the latest stable release version of PostgreSQL is.",
+      "expected_tool": "web_search",
+      "expected_args": {},
+      "required_args": [
+        "query"
+      ],
+      "max_tokens": 80
+    },
+    {
+      "id": "a09",
+      "name": "tool_query_database_customer",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "How many total orders has customer ID 42 placed? Check the 'orders_db' database.",
+      "expected_tool": "query_database",
+      "expected_args": {
+        "db": "orders_db"
+      },
+      "required_args": [
+        "sql",
+        "db"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "a10",
+      "name": "tool_send_email_team",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Send a reminder to team@example.com with subject 'Sprint Review Tomorrow' and body 'Please join the sprint review meeting tomorrow at 10am.'",
+      "expected_tool": "send_email",
+      "expected_args": {
+        "to": "team@example.com"
+      },
+      "required_args": [
+        "to",
+        "subject",
+        "body"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "a11",
+      "name": "tool_read_config_json",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "The user says: 'Show me the content of /etc/config.json'",
+      "expected_tool": "read_file",
+      "expected_args": {
+        "path": "/etc/config.json"
+      },
+      "required_args": [
+        "path"
+      ],
+      "max_tokens": 80
+    },
+    {
+      "id": "a12",
+      "name": "tool_read_readme",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Can you read the README.md file located at /project/README.md?",
+      "expected_tool": "read_file",
+      "expected_args": {
+        "path": "/project/README.md"
+      },
+      "required_args": [
+        "path"
+      ],
+      "max_tokens": 80
+    },
+    {
+      "id": "a13",
+      "name": "tool_read_error_log",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "I need to check the server error logs stored at /var/logs/error.log",
+      "expected_tool": "read_file",
+      "expected_args": {
+        "path": "/var/logs/error.log"
+      },
+      "required_args": [
+        "path"
+      ],
+      "max_tokens": 80
+    },
+    {
+      "id": "a14",
+      "name": "tool_web_search_python_version",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "What is the latest stable version of Python?",
+      "expected_tool": "web_search",
+      "expected_args": {},
+      "required_args": [
+        "query"
+      ],
+      "max_tokens": 80
+    },
+    {
+      "id": "a15",
+      "name": "tool_web_search_weather",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "What will the weather be like in Prague tomorrow?",
+      "expected_tool": "web_search",
+      "expected_args": {},
+      "required_args": [
+        "query"
+      ],
+      "max_tokens": 80
+    },
+    {
+      "id": "a16",
+      "name": "tool_web_search_exchange_rate",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Can you look up the current exchange rate between EUR and USD?",
+      "expected_tool": "web_search",
+      "expected_args": {},
+      "required_args": [
+        "query"
+      ],
+      "max_tokens": 80
+    },
+    {
+      "id": "a17",
+      "name": "tool_send_email_meeting_summary",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Send an email to boss@company.com with subject 'Meeting Summary' and body 'Here is the summary from today's meeting: project is on track.'",
+      "expected_tool": "send_email",
+      "expected_args": {
+        "to": "boss@company.com"
+      },
+      "required_args": [
+        "to",
+        "subject",
+        "body"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "a18",
+      "name": "tool_send_email_bug_report",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Email support@helpdesk.com, subject 'Bug Report', body 'I found a critical bug in the login module. Please investigate urgently.'",
+      "expected_tool": "send_email",
+      "expected_args": {
+        "to": "support@helpdesk.com"
+      },
+      "required_args": [
+        "to",
+        "subject",
+        "body"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "a19",
+      "name": "tool_send_email_leave_request",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Please email hr@company.com with subject 'Leave Request' and body 'I would like to request 3 days of annual leave from March 20 to March 22.'",
+      "expected_tool": "send_email",
+      "expected_args": {
+        "to": "hr@company.com"
+      },
+      "required_args": [
+        "to",
+        "subject",
+        "body"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "a20",
+      "name": "tool_execute_sort_list",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Run Python code to sort this list and print the result: [3, 1, 4, 1, 5, 9, 2, 6]",
+      "expected_tool": "execute_python",
+      "expected_args": {},
+      "required_args": [
+        "code"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "a21",
+      "name": "tool_execute_regex_check",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Use Python to check whether the string 'openai' matches the regex pattern '^open[a-z]+$' and print True or False.",
+      "expected_tool": "execute_python",
+      "expected_args": {},
+      "required_args": [
+        "code"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "a22",
+      "name": "tool_execute_factorial",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Calculate the factorial of 10 using Python and show the result.",
+      "expected_tool": "execute_python",
+      "expected_args": {},
+      "required_args": [
+        "code"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "a23",
+      "name": "tool_query_inactive_users",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Find all users in the 'user_db' database who haven't logged in for more than 30 days.",
+      "expected_tool": "query_database",
+      "expected_args": {
+        "db": "user_db"
+      },
+      "required_args": [
+        "sql",
+        "db"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "a24",
+      "name": "tool_query_low_stock",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Check the 'inventory_db' database for any products where stock quantity is below 10.",
+      "expected_tool": "query_database",
+      "expected_args": {
+        "db": "inventory_db"
+      },
+      "required_args": [
+        "sql",
+        "db"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "a25",
+      "name": "tool_query_top_products",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it, in this exact format: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}. Available tools: read_file(path: str), web_search(query: str), send_email(to: str, subject: str, body: str), execute_python(code: str), query_database(sql: str, db: str).",
+      "prompt": "Get the top 5 best-selling products from the 'analytics_db' database for the last quarter.",
+      "expected_tool": "query_database",
+      "expected_args": {
+        "db": "analytics_db"
+      },
+      "required_args": [
+        "sql",
+        "db"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "s01",
+      "name": "extract_key_facts_python",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "easy",
+      "prompt": "Read this and list exactly 4 key facts as a numbered list (1. 2. 3. 4.):\n\nPython was created by Guido van Rossum and first released in 1991. It emphasizes code readability through significant indentation. Python is dynamically typed and garbage-collected. It supports procedural, object-oriented, and functional programming paradigms. Python consistently ranks among the world's most popular programming languages.",
+      "required_facts": [
+        "guido",
+        "1991",
+        "indentation",
+        "dynamically"
+      ],
+      "max_tokens": 300
+    },
+    {
+      "id": "s02",
+      "name": "bullet_point_format",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "easy",
+      "prompt": "Summarize the following in exactly 3 bullet points starting with '•':\n\nThe Amazon rainforest covers over 5.5 million km² across nine countries. It is home to 10% of all species on Earth and produces about 20% of the world's oxygen. Deforestation has destroyed roughly 17% of the Amazon over the past 50 years, driven mainly by cattle ranching and agriculture.",
+      "required_facts": [
+        "•",
+        "5.5",
+        "17"
+      ],
+      "max_tokens": 200
+    },
+    {
+      "id": "s03",
+      "name": "rest_api_summary",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "medium",
+      "prompt": "In exactly 2 sentences, summarize what a REST API is. Mention at least two HTTP methods it uses. Be precise and concise.",
+      "required_facts": [
+        "stateless",
+        "http",
+        "get",
+        "post"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "s04",
+      "name": "strict_instruction_following",
+      "category": "summarization",
+      "eval_type": "regex",
+      "difficulty": "easy",
+      "prompt": "Reply with ONLY the capital city of France. One word, nothing else.",
+      "pattern": "(?i)^\\s*paris[.!]?\\s*$",
+      "max_tokens": 10
+    },
+    {
+      "id": "s05",
+      "name": "selective_extraction_scientists",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "medium",
+      "prompt": "From the text below, extract ONLY the names of the three scientists mentioned and list them as 1. 2. 3. with nothing else:\n\nThe theory of relativity was developed by Albert Einstein in the early 20th century. Marie Curie pioneered research on radioactivity and won two Nobel Prizes. Isaac Newton laid the foundations of classical mechanics with his laws of motion.",
+      "required_facts": [
+        "Einstein",
+        "Curie",
+        "Newton"
+      ],
+      "max_tokens": 80
+    },
+    {
+      "id": "s06",
+      "name": "acronym_expansion_rest",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "easy",
+      "prompt": "What does the acronym REST stand for in web development? Give the full expansion only.",
+      "required_facts": [
+        "Representational",
+        "State",
+        "Transfer"
+      ],
+      "max_tokens": 30
+    },
+    {
+      "id": "s07",
+      "name": "date_extraction",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "medium",
+      "prompt": "Extract only the three dates mentioned in this text and list them as 1. 2. 3.:\n\nOn January 15, 2023, the company announced its IPO plans. Trading began on February 3, 2023 on the stock exchange. The first quarterly earnings report was released on May 10, 2023.",
+      "required_facts": [
+        "January 15",
+        "February 3",
+        "May 10"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "s08",
+      "name": "numerical_summary",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "medium",
+      "prompt": "From the quarterly sales data below, state the highest value, the lowest value, and their difference. Answer in one sentence.\n\nQ1: $45,000 | Q2: $62,000 | Q3: $38,000 | Q4: $71,000",
+      "required_facts": [
+        "71",
+        "38",
+        "33"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "s09",
+      "name": "single_word_linux",
+      "category": "summarization",
+      "eval_type": "exact",
+      "difficulty": "easy",
+      "prompt": "In which programming language was the Linux kernel originally written? Answer with one word only.",
+      "expected_text": "C",
+      "case_sensitive": true,
+      "max_tokens": 10
+    },
+    {
+      "id": "s10",
+      "name": "key_facts_docker",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "medium",
+      "prompt": "Read the text below and list exactly 4 key facts as a numbered list (1. 2. 3. 4.):\n\nDocker was released in 2013 by Solomon Hykes at dotCloud. It uses OS-level virtualisation to deliver software in packages called containers. Containers are isolated from each other and bundle their own software, libraries, and configuration files. Docker became open-source in March 2013 and quickly became the industry standard for container technology.",
+      "required_facts": [
+        "2013",
+        "Solomon",
+        "container",
+        "open-source"
+      ],
+      "max_tokens": 250
+    },
+    {
+      "id": "s11",
+      "name": "country_capitals",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "easy",
+      "prompt": "List the capitals of these three countries: France, Germany, Japan. Format as: Country: Capital.",
+      "required_facts": [
+        "Paris",
+        "Berlin",
+        "Tokyo"
+      ],
+      "max_tokens": 80
+    },
+    {
+      "id": "s12",
+      "name": "javascript_key_facts",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "medium",
+      "prompt": "List exactly 3 key facts about JavaScript as a numbered list (1. 2. 3.):\n\nJavaScript was created by Brendan Eich in 1995. It was originally called Mocha, then LiveScript, before being renamed JavaScript. JavaScript is the only programming language natively supported by web browsers and is essential for front-end web development. The language is standardized under the name ECMAScript.",
+      "required_facts": [
+        "Brendan",
+        "1995",
+        "ECMAScript"
+      ],
+      "max_tokens": 200
+    },
+    {
+      "id": "s13",
+      "name": "www_invention",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "easy",
+      "prompt": "In one sentence, who invented the World Wide Web and in what year was it proposed?",
+      "required_facts": [
+        "Berners-Lee",
+        "1989"
+      ],
+      "max_tokens": 60
+    },
+    {
+      "id": "s14",
+      "name": "acronym_api",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "easy",
+      "prompt": "What does API stand for in software development? Give only the full expansion.",
+      "required_facts": [
+        "Application",
+        "Programming",
+        "Interface"
+      ],
+      "max_tokens": 30
+    },
+    {
+      "id": "s15",
+      "name": "boiling_point",
+      "category": "summarization",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "At what temperature in Celsius does water boil at standard atmospheric pressure? Answer with the number only.",
+      "expected_number": 100,
+      "tolerance": 0.001,
+      "max_tokens": 10
+    },
+    {
+      "id": "s16",
+      "name": "largest_planet",
+      "category": "summarization",
+      "eval_type": "regex",
+      "difficulty": "easy",
+      "prompt": "What is the largest planet in our solar system? Answer with one word only.",
+      "pattern": "(?i)^\\s*jupiter[.!]?\\s*$",
+      "max_tokens": 10
+    },
+    {
+      "id": "s17",
+      "name": "python_code_output",
+      "category": "summarization",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "What does the following Python code print?\n\nprint(len('hello') * 2)\n\nAnswer with the number only.",
+      "expected_number": 10,
+      "tolerance": 0.001,
+      "max_tokens": 10
+    },
+    {
+      "id": "s18",
+      "name": "binary_to_decimal",
+      "category": "summarization",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "What is the binary number 1010 in decimal? Answer with the number only.",
+      "expected_number": 10,
+      "tolerance": 0.001,
+      "max_tokens": 10
+    },
+    {
+      "id": "s19",
+      "name": "character_count",
+      "category": "summarization",
+      "eval_type": "numeric",
+      "difficulty": "easy",
+      "prompt": "How many characters (letters) are in the word 'programming'? Answer with the number only.",
+      "expected_number": 11,
+      "tolerance": 0.001,
+      "max_tokens": 10
+    },
+    {
+      "id": "s20",
+      "name": "alphabetical_sort",
+      "category": "summarization",
+      "eval_type": "regex",
+      "difficulty": "easy",
+      "prompt": "Sort these words alphabetically and list them on one line separated by commas: banana, apple, cherry, date.",
+      "pattern": "(?i)apple.*banana.*cherry.*date",
+      "max_tokens": 40
+    },
+    {
+      "id": "s21",
+      "name": "git_stage_command",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "easy",
+      "prompt": "What git command stages all changed files in the current directory for commit? Give the exact command only.",
+      "required_facts": [
+        "git",
+        "add"
+      ],
+      "max_tokens": 20
+    },
+    {
+      "id": "s22",
+      "name": "iso_date_format",
+      "category": "summarization",
+      "eval_type": "regex",
+      "difficulty": "easy",
+      "prompt": "Write the date March 15, 2026 in ISO 8601 format (YYYY-MM-DD). Give only the formatted date, nothing else.",
+      "pattern": "2026-03-15",
+      "max_tokens": 15
+    },
+    {
+      "id": "s23",
+      "name": "acronym_json",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "easy",
+      "prompt": "What does JSON stand for? Give only the full expansion.",
+      "required_facts": [
+        "JavaScript",
+        "Object",
+        "Notation"
+      ],
+      "max_tokens": 30
+    },
+    {
+      "id": "s24",
+      "name": "http_404_meaning",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "easy",
+      "prompt": "What does an HTTP 404 status code mean? Answer in one sentence.",
+      "required_facts": [
+        "404",
+        "found"
+      ],
+      "max_tokens": 40
+    },
+    {
+      "id": "s25",
+      "name": "agile_sprint_definition",
+      "category": "summarization",
+      "eval_type": "contains_all",
+      "difficulty": "easy",
+      "prompt": "In one sentence, define what a 'sprint' is in Agile software development.",
+      "required_facts": [
+        "time",
+        "iteration"
+      ],
+      "max_tokens": 60
+    },
+    {
+      "id": "mcp01",
+      "name": "mcp_basic_tool_selection",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI assistant connected to tools via the Model Context Protocol (MCP). When you need to call a tool, output ONLY a JSON object in this exact format:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- get_weather(location: str) — Returns current weather for a city\n- get_time(timezone: str) — Returns current time in the given timezone",
+      "prompt": "What's the current weather in London?",
+      "expected_tool": "get_weather",
+      "expected_args": {},
+      "required_args": [
+        "location"
+      ],
+      "max_tokens": 80
+    },
+    {
+      "id": "mcp02",
+      "name": "mcp_integer_param",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI assistant connected to tools via the Model Context Protocol (MCP). When you need to call a tool, output ONLY a JSON object in this exact format:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- get_top_records(table: str, limit: int) — Returns the top N records from a table\n- list_tables(database: str) — Lists all tables in a database",
+      "prompt": "Get the top 5 records from the 'users' table.",
+      "expected_tool": "get_top_records",
+      "expected_args": {
+        "table": "users"
+      },
+      "required_args": [
+        "table",
+        "limit"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "mcp03",
+      "name": "mcp_boolean_param",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI assistant connected to tools via the Model Context Protocol (MCP). When you need to call a tool, output ONLY a JSON object in this exact format:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- search_files(pattern: str, recursive: bool) — Searches for files matching a glob pattern. Set recursive=true to include subdirectories.\n- read_file(path: str) — Reads a single file by path",
+      "prompt": "Search for all *.log files and include subdirectories in the search.",
+      "expected_tool": "search_files",
+      "expected_args": {},
+      "required_args": [
+        "pattern",
+        "recursive"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "mcp04",
+      "name": "mcp_tool_disambiguation",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI assistant connected to tools via the Model Context Protocol (MCP). When you need to call a tool, output ONLY a JSON object in this exact format:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- read_local_file(path: str) — Reads a file from the local filesystem by absolute path\n- fetch_remote_url(url: str) — Fetches content from an HTTP/HTTPS URL",
+      "prompt": "Get the content from https://api.example.com/data",
+      "expected_tool": "fetch_remote_url",
+      "expected_args": {
+        "url": "https://api.example.com/data"
+      },
+      "required_args": [
+        "url"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "mcp05",
+      "name": "mcp_multi_param_call",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI assistant connected to tools via the Model Context Protocol (MCP). When you need to call a tool, output ONLY a JSON object in this exact format:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- send_notification(user_id: int, message: str, priority: str, channel: str) — Sends a notification to a user. priority: \"low\"|\"normal\"|\"high\". channel: \"slack\"|\"email\"|\"sms\".\n- log_event(event_type: str, details: str) — Logs a system event",
+      "prompt": "Send a high-priority alert to user 42 saying 'Server is down' via the 'slack' channel.",
+      "expected_tool": "send_notification",
+      "expected_args": {
+        "user_id": 42,
+        "priority": "high",
+        "channel": "slack"
+      },
+      "required_args": [
+        "user_id",
+        "message",
+        "priority",
+        "channel"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "mcp06",
+      "name": "mcp_enum_param",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI assistant connected to tools via the Model Context Protocol (MCP). When you need to call a tool, output ONLY a JSON object in this exact format:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- set_log_level(service: str, level: str) — Sets the log level for a service. level must be one of: \"DEBUG\", \"INFO\", \"WARNING\", \"ERROR\".\n- restart_service(service: str) — Restarts a named service",
+      "prompt": "Set the log level of the 'api-gateway' service to WARNING.",
+      "expected_tool": "set_log_level",
+      "expected_args": {
+        "service": "api-gateway",
+        "level": "WARNING"
+      },
+      "required_args": [
+        "service",
+        "level"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "mcp07",
+      "name": "mcp_typed_path_disambiguation",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI assistant connected to tools via the Model Context Protocol (MCP). When you need to call a tool, output ONLY a JSON object in this exact format:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- read_local_file(path: str) — Reads a file from the local disk by absolute path\n- fetch_remote_url(url: str) — Fetches content from an HTTP/HTTPS URL\n- query_database(sql: str, db: str) — Runs a SQL query against a named database",
+      "prompt": "Open the file /home/user/data/report.csv from the local disk.",
+      "expected_tool": "read_local_file",
+      "expected_args": {
+        "path": "/home/user/data/report.csv"
+      },
+      "required_args": [
+        "path"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "mcp08",
+      "name": "mcp_optional_param_handling",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI assistant connected to tools via the Model Context Protocol (MCP). When you need to call a tool, output ONLY a JSON object in this exact format:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- create_user(name: str, email: str, role: str = \"user\") — Creates a new user. role is optional, defaults to \"user\".\n- update_user(user_id: int, fields: dict) — Updates fields on an existing user by ID",
+      "prompt": "Create a new user named Alice with email alice@example.com. No special role needed.",
+      "expected_tool": "create_user",
+      "expected_args": {
+        "name": "Alice",
+        "email": "alice@example.com"
+      },
+      "required_args": [
+        "name",
+        "email"
+      ],
+      "max_tokens": 120
+    },
+    {
+      "id": "mcp09",
+      "name": "mcp_numeric_conversion_tool",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI assistant connected to tools via the Model Context Protocol (MCP). When you need to call a tool, output ONLY a JSON object in this exact format:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- convert_units(value: float, from_unit: str, to_unit: str) — Converts a value between units (e.g. km to miles, kg to lbs)\n- calculate(expression: str) — Evaluates a mathematical expression string",
+      "prompt": "Convert 100 kilometres to miles.",
+      "expected_tool": "convert_units",
+      "expected_args": {},
+      "required_args": [
+        "value",
+        "from_unit",
+        "to_unit"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "mcp10",
+      "name": "mcp_three_tool_disambiguation",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI assistant connected to tools via the Model Context Protocol (MCP). When you need to call a tool, output ONLY a JSON object in this exact format:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- search_web(query: str) — Searches the internet for up-to-date information\n- query_database(sql: str, db: str) — Runs SQL against an internal database\n- read_local_file(path: str) — Reads a file from local disk",
+      "prompt": "What is the current market capitalisation of Apple Inc.? I need live data.",
+      "expected_tool": "search_web",
+      "expected_args": {},
+      "required_args": [
+        "query"
+      ],
+      "max_tokens": 100
+    }
+  ]
+}
