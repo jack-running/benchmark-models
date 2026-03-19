@@ -1,1 +1,108 @@
-IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwoiIiIKUXVpY2sgZGlhZ25vc3RpYzogZHVtcHMgcmF3IE9sbGFtYSBjaHVuayBmaWVsZHMgZm9yIGEgZmFpbGluZyBtb2RlbC4KUnVuIHRoaXMgb24geW91ciBXaW5kb3dzIG1hY2hpbmU6CiAgICBweXRob24gZGlhZ25vc2Vfb2xsYW1hLnB5CiAgICBweXRob24gZGlhZ25vc2Vfb2xsYW1hLnB5IC0tbW9kZWwgcXdlbjMuNToyN2IgLS1wcm9tcHQgIldoYXQgaXMgMTcqMjM/IgoiIiIKaW1wb3J0IHJlcXVlc3RzLCBqc29uLCBhcmdwYXJzZSwgc3lzCgpPTExBTUFfSE9TVCA9ICJodHRwOi8vMTkyLjE2OC4wLjE0OToxMTQzNCIKCmRlZiBkaWFnbm9zZShob3N0LCBtb2RlbCwgcHJvbXB0LCBtYXhfdG9rZW5zPTE1LCB0aGluaz1Ob25lKToKICAgIHByaW50KGYiXG57Jz0nKjYwfSIpCiAgICBwcmludChmIk1vZGVsOiAgICAgIHttb2RlbH0iKQogICAgcHJpbnQoZiJQcm9tcHQ6ICAgICB7cHJvbXB0IXJ9IikKICAgIHByaW50KGYibWF4X3Rva2Vuczoge21heF90b2tlbnN9ICB0aGluayBwYXJhbToge3RoaW5rfSIpCiAgICBwcmludChmInsnPScqNjB9IikKCiAgICBwYXlsb2FkID0gewogICAgICAgICJtb2RlbCI6ICBtb2RlbCwKICAgICAgICAicHJvbXB0IjogcHJvbXB0LAogICAgICAgICJzdHJlYW0iOiBUcnVlLAogICAgICAgICJvcHRpb25zIjogeyJudW1fcHJlZGljdCI6IG1heF90b2tlbnMsICJ0ZW1wZXJhdHVyZSI6IDAuMDV9LAogICAgfQogICAgaWYgdGhpbmsgaXMgbm90IE5vbmU6CiAgICAgICAgcGF5bG9hZFsidGhpbmsiXSAgICAgICAgICAgID0gdGhpbmsgICAgICAjIHRvcC1sZXZlbCAobmV3ZXIgT2xsYW1hKQogICAgICAgIHBheWxvYWRbIm9wdGlvbnMiXVsidGhpbmsiXSA9IHRoaW5rICAgICAgIyBpbnNpZGUgb3B0aW9ucyAoc29tZSBidWlsZHMpCgogICAgYWxsX2tleXMgICAgID0gc2V0KCkKICAgIGZ1bGxfcmVzcCAgICA9ICIiCiAgICBmdWxsX3RoaW5rICAgPSAiIgogICAgY2h1bmtfY291bnQgID0gMAogICAgc2hvd24gICAgICAgID0gMAoKICAgIHRyeToKICAgICAgICB3aXRoIHJlcXVlc3RzLnBvc3QoZiJ7aG9zdH0vYXBpL2dlbmVyYXRlIiwganNvbj1wYXlsb2FkLAogICAgICAgICAgICAgICAgICAgICAgICAgICBzdHJlYW09VHJ1ZSwgdGltZW91dD05MCkgYXMgcjoKICAgICAgICAgICAgci5yYWlzZV9mb3Jfc3RhdHVzKCkKICAgICAgICAgICAgZm9yIHJhdyBpbiByLml0ZXJfbGluZXMoKToKICAgICAgICAgICAgICAgIGlmIG5vdCByYXc6IGNvbnRpbnVlCiAgICAgICAgICAgICAgICBjaHVuayA9IGpzb24ubG9hZHMocmF3KQogICAgICAgICAgICAgICAgY2h1bmtfY291bnQgKz0gMQogICAgICAgICAgICAgICAgYWxsX2tleXMudXBkYXRlKGNodW5rLmtleXMoKSkKCiAgICAgICAgICAgICAgICByZXNwX3RvayAgPSBjaHVuay5nZXQoInJlc3BvbnNlIiwgICIiKQogICAgICAgICAgICAgICAgdGhpbmtfdG9rID0gY2h1bmsuZ2V0KCJ0aGlua2luZyIsICAiIikKICAgICAgICAgICAgICAgIGZ1bGxfcmVzcCAgKz0gcmVzcF90b2sKICAgICAgICAgICAgICAgIGZ1bGxfdGhpbmsgKz0gdGhpbmtfdG9rCgogICAgICAgICAgICAgICAgaWYgc2hvd24gPCAyMCBhbmQgKHJlc3BfdG9rIG9yIHRoaW5rX3RvayBvciBjaHVuay5nZXQoImRvbmUiKSk6CiAgICAgICAgICAgICAgICAgICAgc2hvd24gKz0gMQogICAgICAgICAgICAgICAgICAgIG56ID0ge2s6IHYgZm9yIGssIHYgaW4gY2h1bmsuaXRlbXMoKQogICAgICAgICAgICAgICAgICAgICAgICAgIGlmIHYgbm90IGluIChOb25lLCAiIiwgRmFsc2UsIDAsIHt9LCBbXSl9CiAgICAgICAgICAgICAgICAgICAgZmllbGRfdGFnID0gKCJbVEhJTktdIiBpZiB0aGlua190b2sgYW5kIG5vdCByZXNwX3RvawogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBlbHNlICJbUkVTUF0iICBpZiByZXNwX3RvawogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBlbHNlICJbTUVUQV0iICBpZiBjaHVuay5nZXQoImRvbmUiKQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBlbHNlICJbT1RIRVJdIikKICAgICAgICAgICAgICAgICAgICBwcmludChmIiAgY2h1bmsge2NodW5rX2NvdW50OjNkfSB7ZmllbGRfdGFnfSAge256fSIpCgogICAgICAgICAgICAgICAgaWYgY2h1bmsuZ2V0KCJkb25lIik6CiAgICAgICAgICAgICAgICAgICAgZXYgID0gY2h1bmsuZ2V0KCJldmFsX2NvdW50IiwgMCkKICAgICAgICAgICAgICAgICAgICBlZCAgPSBjaHVuay5nZXQoImV2YWxfZHVyYXRpb24iLCAxKQogICAgICAgICAgICAgICAgICAgIHRwcyA9IGV2IC8gKGVkIC8gMWU5KSBpZiBlZCBlbHNlIDAKICAgICAgICAgICAgICAgICAgICBwcmludChmIlxuICDilIDilIAgZG9uZTogZXZhbF9jb3VudD17ZXZ9ICBUUFM9e3RwczouMWZ9IikKICAgICAgICAgICAgICAgICAgICBicmVhawoKICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICBwcmludChmIiAgRVJST1I6IHtlfSIpCiAgICAgICAgcmV0dXJuCgogICAgcHJpbnQoZiJcbiAgQWxsIGNodW5rIGtleXMgc2VlbiA6IHtzb3J0ZWQoYWxsX2tleXMpfSIpCiAgICBwcmludChmIiAgZnVsbF9yZXNwb25zZSAgICAgICA6IHtyZXByKGZ1bGxfcmVzcFs6MjAwXSl9IikKICAgIHByaW50KGYiICBmdWxsX3RoaW5raW5nICAgICAgIDoge3JlcHIoZnVsbF90aGlua1s6MzAwXSl9IikKCiAgICBpZiBmdWxsX3RoaW5rIGFuZCBub3QgZnVsbF9yZXNwOgogICAgICAgIHByaW50KCJcbiAg4pqg77iPICBDT05GSVJNRUQ6IG1vZGVsIGlzIHVzaW5nIHRoaW5raW5nIG1vZGUuIikKICAgICAgICBwcmludCgiICAgICBBbGwgdG9rZW5zIHdlbnQgdG8gJ3RoaW5raW5nJyBmaWVsZCwgJ3Jlc3BvbnNlJyBpcyBlbXB0eS4iKQogICAgICAgIHByaW50KCIgICAgIEZpeDogcGFzcyB0aGluaz1GYWxzZSBpbiB0aGUgQVBJIHBheWxvYWQuIikKICAgIGVsaWYgZnVsbF9yZXNwOgogICAgICAgIHByaW50KGYiXG4gIOKchSBSZXNwb25zZSBwcmVzZW50OiB7ZnVsbF9yZXNwIXJ9IikKCgpkZWYgZ2V0X29sbGFtYV92ZXJzaW9uKGhvc3QpOgogICAgdHJ5OgogICAgICAgIHIgPSByZXF1ZXN0cy5nZXQoZiJ7aG9zdH0vYXBpL3ZlcnNpb24iLCB0aW1lb3V0PTUpCiAgICAgICAgcmV0dXJuIHIuanNvbigpLmdldCgidmVyc2lvbiIsICJ1bmtub3duIikKICAgIGV4Y2VwdDoKICAgICAgICByZXR1cm4gImNvdWxkIG5vdCBmZXRjaCIKCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgcGFyc2VyID0gYXJncGFyc2UuQXJndW1lbnRQYXJzZXIoKQogICAgcGFyc2VyLmFkZF9hcmd1bWVudCgiLS1ob3N0IiwgICBkZWZhdWx0PU9MTEFNQV9IT1NUKQogICAgcGFyc2VyLmFkZF9hcmd1bWVudCgiLS1tb2RlbCIsICBkZWZhdWx0PSJncHQtb3NzOjIwYiIpCiAgICBwYXJzZXIuYWRkX2FyZ3VtZW50KCItLXByb21wdCIsIGRlZmF1bHQ9IldoYXQgaXMgMTcgbXVsdGlwbGllZCBieSAyMz8gUmVwbHkgd2l0aCB0aGUgbnVtYmVyIG9ubHkuIikKICAgIGFyZ3MgPSBwYXJzZXIucGFyc2VfYXJncygpCgogICAgaG9zdCA9IGFyZ3MuaG9zdAogICAgcHJpbnQoZiJPbGxhbWEgdmVyc2lvbiA6IHtnZXRfb2xsYW1hX3ZlcnNpb24oaG9zdCl9IikKCiAgICAjIFRlc3QgMTogRGVmYXVsdCAodGhpbmtpbmcgbWF5IGJlIG9uKQogICAgZGlhZ25vc2UoaG9zdCwgYXJncy5tb2RlbCwgYXJncy5wcm9tcHQsIG1heF90b2tlbnM9MTUsIHRoaW5rPU5vbmUpCgogICAgIyBUZXN0IDI6IEV4cGxpY2l0bHkgZGlzYWJsZSB0aGlua2luZwogICAgZGlhZ25vc2UoaG9zdCwgYXJncy5tb2RlbCwgYXJncy5wcm9tcHQsIG1heF90b2tlbnM9MTUsIHRoaW5rPUZhbHNlKQoKICAgICMgVGVzdCAzOiBEaXNhYmxlIHRoaW5raW5nICsgZ2VuZXJvdXMgdG9rZW4gYnVkZ2V0IChzYWZldHkgbmV0KQogICAgZGlhZ25vc2UoaG9zdCwgYXJncy5tb2RlbCwgYXJncy5wcm9tcHQsIG1heF90b2tlbnM9MjAwLCB0aGluaz1GYWxzZSkK
+#!/usr/bin/env python3
+"""
+Quick diagnostic: dumps raw Ollama chunk fields for a failing model.
+Run this on your Windows machine:
+    python diagnose_ollama.py
+    python diagnose_ollama.py --model qwen3.5:27b --prompt "What is 17*23?"
+"""
+import requests, json, argparse, sys
+
+OLLAMA_HOST = "http://192.168.0.149:11434"
+
+def diagnose(host, model, prompt, max_tokens=15, think=None):
+    print(f"\n{'='*60}")
+    print(f"Model:      {model}")
+    print(f"Prompt:     {prompt!r}")
+    print(f"max_tokens: {max_tokens}  think param: {think}")
+    print(f"{'='*60}")
+
+    payload = {
+        "model":  model,
+        "prompt": prompt,
+        "stream": True,
+        "options": {"num_predict": max_tokens, "temperature": 0.05},
+    }
+    if think is not None:
+        payload["think"]            = think      # top-level (newer Ollama)
+        payload["options"]["think"] = think      # inside options (some builds)
+
+    all_keys     = set()
+    full_resp    = ""
+    full_think   = ""
+    chunk_count  = 0
+    shown        = 0
+
+    try:
+        with requests.post(f"{host}/api/generate", json=payload,
+                           stream=True, timeout=90) as r:
+            r.raise_for_status()
+            for raw in r.iter_lines():
+                if not raw: continue
+                chunk = json.loads(raw)
+                chunk_count += 1
+                all_keys.update(chunk.keys())
+
+                resp_tok  = chunk.get("response",  "")
+                think_tok = chunk.get("thinking",  "")
+                full_resp  += resp_tok
+                full_think += think_tok
+
+                if shown < 20 and (resp_tok or think_tok or chunk.get("done")):
+                    shown += 1
+                    nz = {k: v for k, v in chunk.items()
+                          if v not in (None, "", False, 0, {}, [])}
+                    field_tag = ("[THINK]" if think_tok and not resp_tok
+                                 else "[RESP]"  if resp_tok
+                                 else "[META]"  if chunk.get("done")
+                                 else "[OTHER]")
+                    print(f"  chunk {chunk_count:3d} {field_tag}  {nz}")
+
+                if chunk.get("done"):
+                    ev  = chunk.get("eval_count", 0)
+                    ed  = chunk.get("eval_duration", 1)
+                    tps = ev / (ed / 1e9) if ed else 0
+                    print(f"\n  ── done: eval_count={ev}  TPS={tps:.1f}")
+                    break
+
+    except Exception as e:
+        print(f"  ERROR: {e}")
+        return
+
+    print(f"\n  All chunk keys seen : {sorted(all_keys)}")
+    print(f"  full_response       : {repr(full_resp[:200])}")
+    print(f"  full_thinking       : {repr(full_think[:300])}")
+
+    if full_think and not full_resp:
+        print("\n  ⚠️  CONFIRMED: model is using thinking mode.")
+        print("     All tokens went to 'thinking' field, 'response' is empty.")
+        print("     Fix: pass think=False in the API payload.")
+    elif full_resp:
+        print(f"\n  ✅ Response present: {full_resp!r}")
+
+
+def get_ollama_version(host):
+    try:
+        r = requests.get(f"{host}/api/version", timeout=5)
+        return r.json().get("version", "unknown")
+    except:
+        return "could not fetch"
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--host",   default=OLLAMA_HOST)
+    parser.add_argument("--model",  default="gpt-oss:20b")
+    parser.add_argument("--prompt", default="What is 17 multiplied by 23? Reply with the number only.")
+    args = parser.parse_args()
+
+    host = args.host
+    print(f"Ollama version : {get_ollama_version(host)}")
+
+    # Test 1: Default (thinking may be on)
+    diagnose(host, args.model, args.prompt, max_tokens=15, think=None)
+
+    # Test 2: Explicitly disable thinking
+    diagnose(host, args.model, args.prompt, max_tokens=15, think=False)
+
+    # Test 3: Disable thinking + generous token budget (safety net)
+    diagnose(host, args.model, args.prompt, max_tokens=200, think=False)
