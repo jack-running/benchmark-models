@@ -1,0 +1,863 @@
+{
+  "version": "extreme-2.0",
+  "description": "Extreme-difficulty benchmark suite — schema-compatible with benchmark_quality.py. Designed to break 100% pass rates on capable 27B local models. Draws from HumanEval hard (is_nested, word_ladder, N-Queens, min_window), LeetCode Hard (LIS, expr evaluator, itinerary, max_product, merge_intervals, combo_count), competition math (AIME-style modular arithmetic, Bayesian probability, infinite series), 10-tool agentic disambiguation (post_webhook, translate_text), and deep MCP schema reasoning (nested date_range, idempotency_key, compress vs resize).",
+  "categories": [
+    "extreme_coding",
+    "extreme_reasoning",
+    "extreme_agentic",
+    "extreme_mcp"
+  ],
+  "context_window_notes": {
+    "recommended_num_ctx": 16384,
+    "note": "MCP system prompts are ~400-500 tokens; agentic ~300 tokens",
+    "thinking_mode": "max_tokens values are sized for --think mode (includes thinking token budget). Without --think the model will be faster and still have ample token headroom."
+  },
+  "tests": [
+    {
+      "id": "e_c01",
+      "name": "is_nested_brackets",
+      "category": "extreme_coding",
+      "eval_type": "code_execution",
+      "difficulty": "extreme",
+      "source": "HumanEval #132",
+      "prompt": "Write a Python function `is_nested(string)` that accepts a string of square brackets and returns True if and only if there exists at least one bracket that is nested inside another pair of brackets. Output only the function definition.",
+      "function_name": "is_nested",
+      "test_cases": [
+        {
+          "call": "is_nested('[[]]')",
+          "expected": true
+        },
+        {
+          "call": "is_nested('[][]')",
+          "expected": false
+        },
+        {
+          "call": "is_nested('[[][]]')",
+          "expected": true
+        },
+        {
+          "call": "is_nested('[]')",
+          "expected": false
+        },
+        {
+          "call": "is_nested('[[[]]]')",
+          "expected": true
+        }
+      ],
+      "max_tokens": 1200
+    },
+    {
+      "id": "e_c02",
+      "name": "word_ladder_bfs",
+      "category": "extreme_coding",
+      "eval_type": "code_execution",
+      "difficulty": "extreme",
+      "source": "LeetCode 127",
+      "prompt": "Write a Python function `word_ladder(begin_word, end_word, word_list)` that returns the length of the shortest transformation sequence from begin_word to end_word, where each step changes exactly one letter and every word must be in word_list. The length is the total number of words in the sequence (including begin and end). Return 0 if no sequence exists. Output only the function definition.",
+      "function_name": "word_ladder",
+      "test_cases": [
+        {
+          "call": "word_ladder('hit','cog',['hot','dot','dog','lot','log','cog'])",
+          "expected": 5
+        },
+        {
+          "call": "word_ladder('hit','cog',['hot','dot','dog','lot','log'])",
+          "expected": 0
+        },
+        {
+          "call": "word_ladder('abc','abd',['abc','abd'])",
+          "expected": 2
+        }
+      ],
+      "max_tokens": 1200
+    },
+    {
+      "id": "e_c03",
+      "name": "n_queens_count",
+      "category": "extreme_coding",
+      "eval_type": "code_execution",
+      "difficulty": "extreme",
+      "source": "Classic backtracking",
+      "prompt": "Write a Python function `n_queens(n)` that returns the total number of distinct solutions to the N-Queens problem on an n×n board. Output only the function definition.",
+      "function_name": "n_queens",
+      "test_cases": [
+        {
+          "call": "n_queens(1)",
+          "expected": 1
+        },
+        {
+          "call": "n_queens(4)",
+          "expected": 2
+        },
+        {
+          "call": "n_queens(8)",
+          "expected": 92
+        }
+      ],
+      "max_tokens": 1200
+    },
+    {
+      "id": "e_c04",
+      "name": "minimum_window_substring",
+      "category": "extreme_coding",
+      "eval_type": "code_execution",
+      "difficulty": "extreme",
+      "source": "LeetCode 76",
+      "prompt": "Write a Python function `min_window(s, t)` that returns the minimum window substring of s such that every character in t (including duplicates) is included. Return empty string if no such window exists. Output only the function definition.",
+      "function_name": "min_window",
+      "test_cases": [
+        {
+          "call": "min_window('ADOBECODEBANC','ABC')",
+          "expected": "BANC"
+        },
+        {
+          "call": "min_window('a','a')",
+          "expected": "a"
+        },
+        {
+          "call": "min_window('aa','aa')",
+          "expected": "aa"
+        },
+        {
+          "call": "min_window('abc','d')",
+          "expected": ""
+        }
+      ],
+      "max_tokens": 1200
+    },
+    {
+      "id": "e_c05",
+      "name": "longest_increasing_subsequence",
+      "category": "extreme_coding",
+      "eval_type": "code_execution",
+      "difficulty": "extreme",
+      "source": "LeetCode 300",
+      "prompt": "Write a Python function `lis(nums)` that returns the length of the longest strictly increasing subsequence. Use an O(n log n) algorithm. Output only the function definition.",
+      "function_name": "lis",
+      "test_cases": [
+        {
+          "call": "lis([10,9,2,5,3,7,101,18])",
+          "expected": 4
+        },
+        {
+          "call": "lis([0,1,0,3,2,3])",
+          "expected": 4
+        },
+        {
+          "call": "lis([7,7,7,7])",
+          "expected": 1
+        },
+        {
+          "call": "lis([1,3,6,7,9,4,10,5,6])",
+          "expected": 6
+        }
+      ],
+      "max_tokens": 1200
+    },
+    {
+      "id": "e_c06",
+      "name": "expression_evaluator",
+      "category": "extreme_coding",
+      "eval_type": "code_execution",
+      "difficulty": "extreme",
+      "source": "LeetCode 224/227",
+      "prompt": "Write a Python function `evaluate(s)` that evaluates a string arithmetic expression containing non-negative integers, +, -, *, / operators and parentheses. Integer division truncates toward zero. Spaces may appear anywhere. Output only the function definition.",
+      "function_name": "evaluate",
+      "test_cases": [
+        {
+          "call": "evaluate('3+2*2')",
+          "expected": 7
+        },
+        {
+          "call": "evaluate('(2+3)*4')",
+          "expected": 20
+        },
+        {
+          "call": "evaluate('14/3')",
+          "expected": 4
+        },
+        {
+          "call": "evaluate('100-(3+2)*4')",
+          "expected": 80
+        },
+        {
+          "call": "evaluate(' 6-9/ 3 ')",
+          "expected": 3
+        }
+      ],
+      "max_tokens": 1400
+    },
+    {
+      "id": "e_c07",
+      "name": "reconstruct_itinerary",
+      "category": "extreme_coding",
+      "eval_type": "code_execution",
+      "difficulty": "extreme",
+      "source": "LeetCode 332",
+      "prompt": "Write a Python function `find_itinerary(tickets)` where tickets is a list of [from, to] string pairs. Reconstruct the itinerary starting from 'JFK' using all tickets exactly once. Return the itinerary with smallest lexicographic order when multiple solutions exist. Output only the function definition.",
+      "function_name": "find_itinerary",
+      "test_cases": [
+        {
+          "call": "find_itinerary([['MUC','LHR'],['JFK','MUC'],['SFO','SJC'],['LHR','SFO']])",
+          "expected": [
+            "JFK",
+            "MUC",
+            "LHR",
+            "SFO",
+            "SJC"
+          ]
+        },
+        {
+          "call": "find_itinerary([['JFK','SFO'],['JFK','ATL'],['SFO','ATL'],['ATL','JFK'],['ATL','SFO']])",
+          "expected": [
+            "JFK",
+            "ATL",
+            "JFK",
+            "SFO",
+            "ATL",
+            "SFO"
+          ]
+        }
+      ],
+      "max_tokens": 1400
+    },
+    {
+      "id": "e_c08",
+      "name": "max_product_subarray",
+      "category": "extreme_coding",
+      "eval_type": "code_execution",
+      "difficulty": "extreme",
+      "source": "LeetCode 152",
+      "prompt": "Write a Python function `max_product(nums)` that returns the maximum product of a contiguous non-empty subarray of nums. Output only the function definition.",
+      "function_name": "max_product",
+      "test_cases": [
+        {
+          "call": "max_product([2,3,-2,4])",
+          "expected": 6
+        },
+        {
+          "call": "max_product([-2,0,-1])",
+          "expected": 0
+        },
+        {
+          "call": "max_product([-2,3,-4])",
+          "expected": 24
+        },
+        {
+          "call": "max_product([-3,-1,-1])",
+          "expected": 3
+        }
+      ],
+      "max_tokens": 1200
+    },
+    {
+      "id": "e_c09",
+      "name": "count_unordered_combinations",
+      "category": "extreme_coding",
+      "eval_type": "code_execution",
+      "difficulty": "extreme",
+      "source": "LeetCode 518 variant",
+      "prompt": "Write a Python function `count_combinations(candidates, target)` that counts the number of distinct combinations (ORDER DOES NOT MATTER) of numbers from candidates that sum to target. Each number may be used unlimited times. Output only the function definition.",
+      "function_name": "count_combinations",
+      "test_cases": [
+        {
+          "call": "count_combinations([1,2,3], 4)",
+          "expected": 4
+        },
+        {
+          "call": "count_combinations([2], 3)",
+          "expected": 0
+        },
+        {
+          "call": "count_combinations([2,3,5], 8)",
+          "expected": 3
+        },
+        {
+          "call": "count_combinations([1,2], 5)",
+          "expected": 3
+        }
+      ],
+      "max_tokens": 1200
+    },
+    {
+      "id": "e_c10",
+      "name": "merge_overlapping_intervals",
+      "category": "extreme_coding",
+      "eval_type": "code_execution",
+      "difficulty": "extreme",
+      "source": "LeetCode 56",
+      "prompt": "Write a Python function `merge(intervals)` that merges all overlapping intervals. Input is a list of [start, end] pairs. Return a sorted list of merged intervals. Output only the function definition.",
+      "function_name": "merge",
+      "test_cases": [
+        {
+          "call": "merge([[1,3],[2,6],[8,10],[15,18]])",
+          "expected": [
+            [
+              1,
+              6
+            ],
+            [
+              8,
+              10
+            ],
+            [
+              15,
+              18
+            ]
+          ]
+        },
+        {
+          "call": "merge([[1,4],[4,5]])",
+          "expected": [
+            [
+              1,
+              5
+            ]
+          ]
+        },
+        {
+          "call": "merge([[1,4],[0,4]])",
+          "expected": [
+            [
+              0,
+              4
+            ]
+          ]
+        },
+        {
+          "call": "merge([[1,4],[2,3]])",
+          "expected": [
+            [
+              1,
+              4
+            ]
+          ]
+        }
+      ],
+      "max_tokens": 1200
+    },
+    {
+      "id": "e_r01",
+      "name": "combinatorics_committee",
+      "category": "extreme_reasoning",
+      "eval_type": "numeric",
+      "difficulty": "extreme",
+      "source": "Combinatorics C(10,2)",
+      "prompt": "A club has 10 members. How many different 2-person committees can be formed? Give only the final integer answer.",
+      "expected_number": 45,
+      "tolerance": 0,
+      "max_tokens": 600
+    },
+    {
+      "id": "e_r02",
+      "name": "digit_sum_enumeration",
+      "category": "extreme_reasoning",
+      "eval_type": "numeric",
+      "difficulty": "extreme",
+      "source": "Number theory / enumeration",
+      "prompt": "How many three-digit positive integers (from 100 to 999 inclusive) have digits that sum to exactly 20? Give only the final integer answer.",
+      "expected_number": 36,
+      "tolerance": 0,
+      "max_tokens": 600
+    },
+    {
+      "id": "e_r03",
+      "name": "geometric_distribution_expected_value",
+      "category": "extreme_reasoning",
+      "eval_type": "numeric",
+      "difficulty": "extreme",
+      "source": "Probability / geometric distribution",
+      "prompt": "You roll a fair six-sided die repeatedly until you get a 6. What is the expected number of rolls required? Give only the final integer answer.",
+      "expected_number": 6,
+      "tolerance": 0,
+      "max_tokens": 600
+    },
+    {
+      "id": "e_r04",
+      "name": "tower_exponent_mod_100",
+      "category": "extreme_reasoning",
+      "eval_type": "numeric",
+      "difficulty": "extreme",
+      "source": "Modular arithmetic",
+      "prompt": "What are the last two digits of 7 raised to the power (7 raised to the power 7)? In other words, compute 7^(7^7) mod 100. Give only the final two-digit integer answer.",
+      "expected_number": 43,
+      "tolerance": 0,
+      "max_tokens": 600
+    },
+    {
+      "id": "e_r05",
+      "name": "right_triangle_inradius_area",
+      "category": "extreme_reasoning",
+      "eval_type": "numeric",
+      "difficulty": "extreme",
+      "source": "Geometry",
+      "prompt": "A right triangle has a hypotenuse of length 26 and an inradius of 5. What is the area of the triangle? Give only the final integer answer.",
+      "expected_number": 155,
+      "tolerance": 0,
+      "max_tokens": 600
+    },
+    {
+      "id": "e_r06",
+      "name": "bayesian_factory_defect",
+      "category": "extreme_reasoning",
+      "eval_type": "numeric",
+      "difficulty": "extreme",
+      "source": "Bayesian probability",
+      "prompt": "A company has two factories. Factory 1 produces 60% of items with a 2% defect rate. Factory 2 produces 40% of items with a 5% defect rate. Given that a randomly selected item is defective, what is the probability (as a decimal) that it came from Factory 2? Round to 3 decimal places. Give only the numeric answer.",
+      "expected_number": 0.625,
+      "tolerance": 0.001,
+      "max_tokens": 600
+    },
+    {
+      "id": "e_r07",
+      "name": "series_sum_k_over_2k",
+      "category": "extreme_reasoning",
+      "eval_type": "numeric",
+      "difficulty": "extreme",
+      "source": "Infinite series",
+      "prompt": "Compute the exact value of the infinite series: S = 1/2 + 2/4 + 3/8 + 4/16 + ... = sum from k=1 to infinity of k divided by 2^k. Give only the final integer answer.",
+      "expected_number": 2,
+      "tolerance": 0,
+      "max_tokens": 600
+    },
+    {
+      "id": "e_r08",
+      "name": "divisor_count_prime_factorization",
+      "category": "extreme_reasoning",
+      "eval_type": "numeric",
+      "difficulty": "extreme",
+      "source": "Number theory",
+      "prompt": "How many positive divisors does the number 2^3 × 3^2 × 5 × 7^2 have? Give only the final integer answer.",
+      "expected_number": 72,
+      "tolerance": 0,
+      "max_tokens": 600
+    },
+    {
+      "id": "e_r09",
+      "name": "geometric_sequence_common_ratio",
+      "category": "extreme_reasoning",
+      "eval_type": "numeric",
+      "difficulty": "extreme",
+      "source": "Geometric series",
+      "prompt": "A geometric sequence has first term 2. The sum of its first 5 terms is 62. What is the common ratio? Give only the final integer answer.",
+      "expected_number": 2,
+      "tolerance": 0,
+      "max_tokens": 600
+    },
+    {
+      "id": "e_r10",
+      "name": "max_rectangle_in_circle",
+      "category": "extreme_reasoning",
+      "eval_type": "numeric",
+      "difficulty": "extreme",
+      "source": "Geometry / optimization",
+      "prompt": "What is the maximum area of a rectangle that can be inscribed in a circle of radius 5? Give only the final integer answer.",
+      "expected_number": 50,
+      "tolerance": 0,
+      "max_tokens": 600
+    },
+    {
+      "id": "e_a01",
+      "name": "translate_not_search",
+      "category": "extreme_agentic",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- search_web(query: str) — Search the internet for information\n- read_file(path: str) — Read the contents of a local file\n- write_file(path: str, content: str) — Write content to a local file\n- execute_python(code: str) — Execute Python code and return stdout\n- call_api(url: str, method: str, body: dict) — Make an HTTP API call and return JSON response\n- send_email(to: str, subject: str, body: str) — Send an email message\n- create_event(title: str, date: str, duration_minutes: int) — Create a calendar event\n- post_webhook(url: str, payload: dict) — POST a JSON payload to a webhook URL\n- translate_text(text: str, target_lang: str) — Translate text (ISO 639-1 language code)\n- get_user_profile(user_id: str) — Retrieve a user profile by ID",
+      "prompt": "Translate this German text into English: 'Die Ergebnisse sind positiv.'",
+      "expected_tool": "translate_text",
+      "expected_args": {
+        "text": "Die Ergebnisse sind positiv.",
+        "target_lang": "en"
+      },
+      "required_args": [
+        "text",
+        "target_lang"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_a02",
+      "name": "write_file_not_execute",
+      "category": "extreme_agentic",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- search_web(query: str) — Search the internet for information\n- read_file(path: str) — Read the contents of a local file\n- write_file(path: str, content: str) — Write content to a local file\n- execute_python(code: str) — Execute Python code and return stdout\n- call_api(url: str, method: str, body: dict) — Make an HTTP API call and return JSON response\n- send_email(to: str, subject: str, body: str) — Send an email message\n- create_event(title: str, date: str, duration_minutes: int) — Create a calendar event\n- post_webhook(url: str, payload: dict) — POST a JSON payload to a webhook URL\n- translate_text(text: str, target_lang: str) — Translate text (ISO 639-1 language code)\n- get_user_profile(user_id: str) — Retrieve a user profile by ID",
+      "prompt": "Create a new file at /output/hello.txt with exactly the content: Hello, World!",
+      "expected_tool": "write_file",
+      "expected_args": {
+        "path": "/output/hello.txt",
+        "content": "Hello, World!"
+      },
+      "required_args": [
+        "path",
+        "content"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_a03",
+      "name": "post_webhook_not_call_api",
+      "category": "extreme_agentic",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- search_web(query: str) — Search the internet for information\n- read_file(path: str) — Read the contents of a local file\n- write_file(path: str, content: str) — Write content to a local file\n- execute_python(code: str) — Execute Python code and return stdout\n- call_api(url: str, method: str, body: dict) — Make an HTTP API call and return JSON response\n- send_email(to: str, subject: str, body: str) — Send an email message\n- create_event(title: str, date: str, duration_minutes: int) — Create a calendar event\n- post_webhook(url: str, payload: dict) — POST a JSON payload to a webhook URL\n- translate_text(text: str, target_lang: str) — Translate text (ISO 639-1 language code)\n- get_user_profile(user_id: str) — Retrieve a user profile by ID",
+      "prompt": "Our CI/CD pipeline webhook at https://hooks.example.com/deploy needs to be triggered. Send it the JSON payload: {\"environment\": \"production\", \"version\": \"2.1.0\"}",
+      "expected_tool": "post_webhook",
+      "expected_args": {
+        "url": "https://hooks.example.com/deploy"
+      },
+      "required_args": [
+        "url",
+        "payload"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_a04",
+      "name": "read_file_first_before_translate",
+      "category": "extreme_agentic",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- search_web(query: str) — Search the internet for information\n- read_file(path: str) — Read the contents of a local file\n- write_file(path: str, content: str) — Write content to a local file\n- execute_python(code: str) — Execute Python code and return stdout\n- call_api(url: str, method: str, body: dict) — Make an HTTP API call and return JSON response\n- send_email(to: str, subject: str, body: str) — Send an email message\n- create_event(title: str, date: str, duration_minutes: int) — Create a calendar event\n- post_webhook(url: str, payload: dict) — POST a JSON payload to a webhook URL\n- translate_text(text: str, target_lang: str) — Translate text (ISO 639-1 language code)\n- get_user_profile(user_id: str) — Retrieve a user profile by ID",
+      "prompt": "Translate the contents of the file /docs/welcome.txt into Spanish.",
+      "expected_tool": "read_file",
+      "expected_args": {
+        "path": "/docs/welcome.txt"
+      },
+      "required_args": [
+        "path"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_a05",
+      "name": "get_user_profile_not_search",
+      "category": "extreme_agentic",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- search_web(query: str) — Search the internet for information\n- read_file(path: str) — Read the contents of a local file\n- write_file(path: str, content: str) — Write content to a local file\n- execute_python(code: str) — Execute Python code and return stdout\n- call_api(url: str, method: str, body: dict) — Make an HTTP API call and return JSON response\n- send_email(to: str, subject: str, body: str) — Send an email message\n- create_event(title: str, date: str, duration_minutes: int) — Create a calendar event\n- post_webhook(url: str, payload: dict) — POST a JSON payload to a webhook URL\n- translate_text(text: str, target_lang: str) — Translate text (ISO 639-1 language code)\n- get_user_profile(user_id: str) — Retrieve a user profile by ID",
+      "prompt": "Retrieve the profile for internal user ID 'usr_8472k'. I need their contact details.",
+      "expected_tool": "get_user_profile",
+      "expected_args": {
+        "user_id": "usr_8472k"
+      },
+      "required_args": [
+        "user_id"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_a06",
+      "name": "execute_python_for_computation",
+      "category": "extreme_agentic",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- search_web(query: str) — Search the internet for information\n- read_file(path: str) — Read the contents of a local file\n- write_file(path: str, content: str) — Write content to a local file\n- execute_python(code: str) — Execute Python code and return stdout\n- call_api(url: str, method: str, body: dict) — Make an HTTP API call and return JSON response\n- send_email(to: str, subject: str, body: str) — Send an email message\n- create_event(title: str, date: str, duration_minutes: int) — Create a calendar event\n- post_webhook(url: str, payload: dict) — POST a JSON payload to a webhook URL\n- translate_text(text: str, target_lang: str) — Translate text (ISO 639-1 language code)\n- get_user_profile(user_id: str) — Retrieve a user profile by ID",
+      "prompt": "Calculate the sum of all unique values in this list: [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]",
+      "expected_tool": "execute_python",
+      "expected_args": {},
+      "required_args": [
+        "code"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_a07",
+      "name": "create_event_not_write_file",
+      "category": "extreme_agentic",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- search_web(query: str) — Search the internet for information\n- read_file(path: str) — Read the contents of a local file\n- write_file(path: str, content: str) — Write content to a local file\n- execute_python(code: str) — Execute Python code and return stdout\n- call_api(url: str, method: str, body: dict) — Make an HTTP API call and return JSON response\n- send_email(to: str, subject: str, body: str) — Send an email message\n- create_event(title: str, date: str, duration_minutes: int) — Create a calendar event\n- post_webhook(url: str, payload: dict) — POST a JSON payload to a webhook URL\n- translate_text(text: str, target_lang: str) — Translate text (ISO 639-1 language code)\n- get_user_profile(user_id: str) — Retrieve a user profile by ID",
+      "prompt": "Schedule a team sync meeting called 'Q2 Planning' for 2026-04-15, 60 minutes long.",
+      "expected_tool": "create_event",
+      "expected_args": {
+        "title": "Q2 Planning",
+        "date": "2026-04-15",
+        "duration_minutes": 60
+      },
+      "required_args": [
+        "title",
+        "date",
+        "duration_minutes"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_a08",
+      "name": "send_email_not_webhook",
+      "category": "extreme_agentic",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- search_web(query: str) — Search the internet for information\n- read_file(path: str) — Read the contents of a local file\n- write_file(path: str, content: str) — Write content to a local file\n- execute_python(code: str) — Execute Python code and return stdout\n- call_api(url: str, method: str, body: dict) — Make an HTTP API call and return JSON response\n- send_email(to: str, subject: str, body: str) — Send an email message\n- create_event(title: str, date: str, duration_minutes: int) — Create a calendar event\n- post_webhook(url: str, payload: dict) — POST a JSON payload to a webhook URL\n- translate_text(text: str, target_lang: str) — Translate text (ISO 639-1 language code)\n- get_user_profile(user_id: str) — Retrieve a user profile by ID",
+      "prompt": "Email alice@example.com with subject 'Report Ready' and body 'Your monthly report has been generated.'",
+      "expected_tool": "send_email",
+      "expected_args": {
+        "to": "alice@example.com",
+        "subject": "Report Ready"
+      },
+      "required_args": [
+        "to",
+        "subject",
+        "body"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_a09",
+      "name": "translate_correct_iso_code_japanese",
+      "category": "extreme_agentic",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- search_web(query: str) — Search the internet for information\n- read_file(path: str) — Read the contents of a local file\n- write_file(path: str, content: str) — Write content to a local file\n- execute_python(code: str) — Execute Python code and return stdout\n- call_api(url: str, method: str, body: dict) — Make an HTTP API call and return JSON response\n- send_email(to: str, subject: str, body: str) — Send an email message\n- create_event(title: str, date: str, duration_minutes: int) — Create a calendar event\n- post_webhook(url: str, payload: dict) — POST a JSON payload to a webhook URL\n- translate_text(text: str, target_lang: str) — Translate text (ISO 639-1 language code)\n- get_user_profile(user_id: str) — Retrieve a user profile by ID",
+      "prompt": "Translate 'Good morning, how are you?' into Japanese.",
+      "expected_tool": "translate_text",
+      "expected_args": {
+        "text": "Good morning, how are you?",
+        "target_lang": "ja"
+      },
+      "required_args": [
+        "text",
+        "target_lang"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_a10",
+      "name": "search_web_for_external_not_profile",
+      "category": "extreme_agentic",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- search_web(query: str) — Search the internet for information\n- read_file(path: str) — Read the contents of a local file\n- write_file(path: str, content: str) — Write content to a local file\n- execute_python(code: str) — Execute Python code and return stdout\n- call_api(url: str, method: str, body: dict) — Make an HTTP API call and return JSON response\n- send_email(to: str, subject: str, body: str) — Send an email message\n- create_event(title: str, date: str, duration_minutes: int) — Create a calendar event\n- post_webhook(url: str, payload: dict) — POST a JSON payload to a webhook URL\n- translate_text(text: str, target_lang: str) — Translate text (ISO 639-1 language code)\n- get_user_profile(user_id: str) — Retrieve a user profile by ID",
+      "prompt": "Find information about the current CEO of OpenAI.",
+      "expected_tool": "search_web",
+      "expected_args": {},
+      "required_args": [
+        "query"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_m01",
+      "name": "convert_seconds_to_milliseconds",
+      "category": "extreme_mcp",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP).\nWhen you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n\nconvert_units(value: number, from_unit: string, to_unit: string)\n  Converts a numeric value between units. Units include: km, miles, kg, lbs, seconds, milliseconds, celsius, fahrenheit, meters, feet.\n\nschedule_task(task_name: string, cron_expression: string, timezone: string, enabled: boolean, max_retries?: integer, tags?: array)\n  Schedules a recurring task using standard 5-field cron (minute hour day month weekday), IANA timezone.\n\nexport_report(report_id: string, format: \"pdf\"|\"csv\"|\"xlsx\"|\"json\", destination: string, date_range: {start: string, end: string}, include_charts?: boolean)\n  Exports a report template to a file. date_range uses ISO 8601 dates.\n\nsearch_records(query: string, search_type: \"by_id\"|\"by_name\"|\"full_text\", limit?: integer, offset?: integer)\n  Searches database records. Use by_id for numeric/alphanumeric IDs, by_name for proper names, full_text for content search.\n\ntransfer_funds(from_account: string, to_account: string, amount: number, currency: string, idempotency_key: string, memo?: string)\n  Transfers funds between accounts. idempotency_key prevents duplicate transfers. currency is ISO 4217.\n\nresize_image(source_path: string, output_path: string, width: integer, height: integer, maintain_aspect_ratio?: boolean)\n  Resizes an image to specific pixel dimensions.\n\ncompress_file(source_path: string, output_path: string, compression_level?: integer)\n  Compresses a file into an archive (.zip, .tar.gz, .gz based on output_path extension).",
+      "prompt": "Convert 3.5 seconds to milliseconds.",
+      "expected_tool": "convert_units",
+      "expected_args": {
+        "value": "3.5",
+        "from_unit": "seconds",
+        "to_unit": "milliseconds"
+      },
+      "required_args": [
+        "value",
+        "from_unit",
+        "to_unit"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_m02",
+      "name": "schedule_task_all_params",
+      "category": "extreme_mcp",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP).\nWhen you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n\nconvert_units(value: number, from_unit: string, to_unit: string)\n  Converts a numeric value between units. Units include: km, miles, kg, lbs, seconds, milliseconds, celsius, fahrenheit, meters, feet.\n\nschedule_task(task_name: string, cron_expression: string, timezone: string, enabled: boolean, max_retries?: integer, tags?: array)\n  Schedules a recurring task using standard 5-field cron (minute hour day month weekday), IANA timezone.\n\nexport_report(report_id: string, format: \"pdf\"|\"csv\"|\"xlsx\"|\"json\", destination: string, date_range: {start: string, end: string}, include_charts?: boolean)\n  Exports a report template to a file. date_range uses ISO 8601 dates.\n\nsearch_records(query: string, search_type: \"by_id\"|\"by_name\"|\"full_text\", limit?: integer, offset?: integer)\n  Searches database records. Use by_id for numeric/alphanumeric IDs, by_name for proper names, full_text for content search.\n\ntransfer_funds(from_account: string, to_account: string, amount: number, currency: string, idempotency_key: string, memo?: string)\n  Transfers funds between accounts. idempotency_key prevents duplicate transfers. currency is ISO 4217.\n\nresize_image(source_path: string, output_path: string, width: integer, height: integer, maintain_aspect_ratio?: boolean)\n  Resizes an image to specific pixel dimensions.\n\ncompress_file(source_path: string, output_path: string, compression_level?: integer)\n  Compresses a file into an archive (.zip, .tar.gz, .gz based on output_path extension).",
+      "prompt": "Schedule a task called 'Nightly Backup' to run at 2:30 AM every day in New York time. Enable it immediately, allow up to 3 retries on failure, and tag it with 'backup' and 'nightly'.",
+      "expected_tool": "schedule_task",
+      "expected_args": {
+        "task_name": "Nightly Backup",
+        "cron_expression": "30 2 * * *",
+        "timezone": "America/New_York",
+        "enabled": "true"
+      },
+      "required_args": [
+        "task_name",
+        "cron_expression",
+        "timezone",
+        "enabled",
+        "max_retries",
+        "tags"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_m03",
+      "name": "export_report_nested_date_range",
+      "category": "extreme_mcp",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP).\nWhen you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n\nconvert_units(value: number, from_unit: string, to_unit: string)\n  Converts a numeric value between units. Units include: km, miles, kg, lbs, seconds, milliseconds, celsius, fahrenheit, meters, feet.\n\nschedule_task(task_name: string, cron_expression: string, timezone: string, enabled: boolean, max_retries?: integer, tags?: array)\n  Schedules a recurring task using standard 5-field cron (minute hour day month weekday), IANA timezone.\n\nexport_report(report_id: string, format: \"pdf\"|\"csv\"|\"xlsx\"|\"json\", destination: string, date_range: {start: string, end: string}, include_charts?: boolean)\n  Exports a report template to a file. date_range uses ISO 8601 dates.\n\nsearch_records(query: string, search_type: \"by_id\"|\"by_name\"|\"full_text\", limit?: integer, offset?: integer)\n  Searches database records. Use by_id for numeric/alphanumeric IDs, by_name for proper names, full_text for content search.\n\ntransfer_funds(from_account: string, to_account: string, amount: number, currency: string, idempotency_key: string, memo?: string)\n  Transfers funds between accounts. idempotency_key prevents duplicate transfers. currency is ISO 4217.\n\nresize_image(source_path: string, output_path: string, width: integer, height: integer, maintain_aspect_ratio?: boolean)\n  Resizes an image to specific pixel dimensions.\n\ncompress_file(source_path: string, output_path: string, compression_level?: integer)\n  Compresses a file into an archive (.zip, .tar.gz, .gz based on output_path extension).",
+      "prompt": "Export report template 'sales_monthly' as an Excel file to 's3://reports/sales_q1.xlsx'. The report should cover January 1 to March 31 2026, and include charts.",
+      "expected_tool": "export_report",
+      "expected_args": {
+        "report_id": "sales_monthly",
+        "format": "xlsx",
+        "destination": "s3://reports/sales_q1.xlsx"
+      },
+      "required_args": [
+        "report_id",
+        "format",
+        "destination",
+        "date_range"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_m04",
+      "name": "search_by_id_not_fulltext",
+      "category": "extreme_mcp",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP).\nWhen you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n\nconvert_units(value: number, from_unit: string, to_unit: string)\n  Converts a numeric value between units. Units include: km, miles, kg, lbs, seconds, milliseconds, celsius, fahrenheit, meters, feet.\n\nschedule_task(task_name: string, cron_expression: string, timezone: string, enabled: boolean, max_retries?: integer, tags?: array)\n  Schedules a recurring task using standard 5-field cron (minute hour day month weekday), IANA timezone.\n\nexport_report(report_id: string, format: \"pdf\"|\"csv\"|\"xlsx\"|\"json\", destination: string, date_range: {start: string, end: string}, include_charts?: boolean)\n  Exports a report template to a file. date_range uses ISO 8601 dates.\n\nsearch_records(query: string, search_type: \"by_id\"|\"by_name\"|\"full_text\", limit?: integer, offset?: integer)\n  Searches database records. Use by_id for numeric/alphanumeric IDs, by_name for proper names, full_text for content search.\n\ntransfer_funds(from_account: string, to_account: string, amount: number, currency: string, idempotency_key: string, memo?: string)\n  Transfers funds between accounts. idempotency_key prevents duplicate transfers. currency is ISO 4217.\n\nresize_image(source_path: string, output_path: string, width: integer, height: integer, maintain_aspect_ratio?: boolean)\n  Resizes an image to specific pixel dimensions.\n\ncompress_file(source_path: string, output_path: string, compression_level?: integer)\n  Compresses a file into an archive (.zip, .tar.gz, .gz based on output_path extension).",
+      "prompt": "Find the record with ID 'ORD-9921'.",
+      "expected_tool": "search_records",
+      "expected_args": {
+        "query": "ORD-9921",
+        "search_type": "by_id"
+      },
+      "required_args": [
+        "query",
+        "search_type"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_m05",
+      "name": "search_fulltext_with_pagination",
+      "category": "extreme_mcp",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP).\nWhen you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n\nconvert_units(value: number, from_unit: string, to_unit: string)\n  Converts a numeric value between units. Units include: km, miles, kg, lbs, seconds, milliseconds, celsius, fahrenheit, meters, feet.\n\nschedule_task(task_name: string, cron_expression: string, timezone: string, enabled: boolean, max_retries?: integer, tags?: array)\n  Schedules a recurring task using standard 5-field cron (minute hour day month weekday), IANA timezone.\n\nexport_report(report_id: string, format: \"pdf\"|\"csv\"|\"xlsx\"|\"json\", destination: string, date_range: {start: string, end: string}, include_charts?: boolean)\n  Exports a report template to a file. date_range uses ISO 8601 dates.\n\nsearch_records(query: string, search_type: \"by_id\"|\"by_name\"|\"full_text\", limit?: integer, offset?: integer)\n  Searches database records. Use by_id for numeric/alphanumeric IDs, by_name for proper names, full_text for content search.\n\ntransfer_funds(from_account: string, to_account: string, amount: number, currency: string, idempotency_key: string, memo?: string)\n  Transfers funds between accounts. idempotency_key prevents duplicate transfers. currency is ISO 4217.\n\nresize_image(source_path: string, output_path: string, width: integer, height: integer, maintain_aspect_ratio?: boolean)\n  Resizes an image to specific pixel dimensions.\n\ncompress_file(source_path: string, output_path: string, compression_level?: integer)\n  Compresses a file into an archive (.zip, .tar.gz, .gz based on output_path extension).",
+      "prompt": "Search for all records mentioning 'overdue invoice'. Get the second page of 5 results.",
+      "expected_tool": "search_records",
+      "expected_args": {
+        "query": "overdue invoice",
+        "search_type": "full_text",
+        "limit": "5",
+        "offset": "5"
+      },
+      "required_args": [
+        "query",
+        "search_type",
+        "limit",
+        "offset"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_m06",
+      "name": "transfer_funds_with_idempotency",
+      "category": "extreme_mcp",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP).\nWhen you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n\nconvert_units(value: number, from_unit: string, to_unit: string)\n  Converts a numeric value between units. Units include: km, miles, kg, lbs, seconds, milliseconds, celsius, fahrenheit, meters, feet.\n\nschedule_task(task_name: string, cron_expression: string, timezone: string, enabled: boolean, max_retries?: integer, tags?: array)\n  Schedules a recurring task using standard 5-field cron (minute hour day month weekday), IANA timezone.\n\nexport_report(report_id: string, format: \"pdf\"|\"csv\"|\"xlsx\"|\"json\", destination: string, date_range: {start: string, end: string}, include_charts?: boolean)\n  Exports a report template to a file. date_range uses ISO 8601 dates.\n\nsearch_records(query: string, search_type: \"by_id\"|\"by_name\"|\"full_text\", limit?: integer, offset?: integer)\n  Searches database records. Use by_id for numeric/alphanumeric IDs, by_name for proper names, full_text for content search.\n\ntransfer_funds(from_account: string, to_account: string, amount: number, currency: string, idempotency_key: string, memo?: string)\n  Transfers funds between accounts. idempotency_key prevents duplicate transfers. currency is ISO 4217.\n\nresize_image(source_path: string, output_path: string, width: integer, height: integer, maintain_aspect_ratio?: boolean)\n  Resizes an image to specific pixel dimensions.\n\ncompress_file(source_path: string, output_path: string, compression_level?: integer)\n  Compresses a file into an archive (.zip, .tar.gz, .gz based on output_path extension).",
+      "prompt": "Transfer 250.00 USD from account ACC-1042 to account ACC-7788. Memo: 'Invoice #4421 payment'. Use idempotency key 'txn-20260316-4421'.",
+      "expected_tool": "transfer_funds",
+      "expected_args": {
+        "from_account": "ACC-1042",
+        "to_account": "ACC-7788",
+        "currency": "USD",
+        "idempotency_key": "txn-20260316-4421"
+      },
+      "required_args": [
+        "from_account",
+        "to_account",
+        "amount",
+        "currency",
+        "idempotency_key"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_m07",
+      "name": "compress_not_resize_for_filesize",
+      "category": "extreme_mcp",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP).\nWhen you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n\nconvert_units(value: number, from_unit: string, to_unit: string)\n  Converts a numeric value between units. Units include: km, miles, kg, lbs, seconds, milliseconds, celsius, fahrenheit, meters, feet.\n\nschedule_task(task_name: string, cron_expression: string, timezone: string, enabled: boolean, max_retries?: integer, tags?: array)\n  Schedules a recurring task using standard 5-field cron (minute hour day month weekday), IANA timezone.\n\nexport_report(report_id: string, format: \"pdf\"|\"csv\"|\"xlsx\"|\"json\", destination: string, date_range: {start: string, end: string}, include_charts?: boolean)\n  Exports a report template to a file. date_range uses ISO 8601 dates.\n\nsearch_records(query: string, search_type: \"by_id\"|\"by_name\"|\"full_text\", limit?: integer, offset?: integer)\n  Searches database records. Use by_id for numeric/alphanumeric IDs, by_name for proper names, full_text for content search.\n\ntransfer_funds(from_account: string, to_account: string, amount: number, currency: string, idempotency_key: string, memo?: string)\n  Transfers funds between accounts. idempotency_key prevents duplicate transfers. currency is ISO 4217.\n\nresize_image(source_path: string, output_path: string, width: integer, height: integer, maintain_aspect_ratio?: boolean)\n  Resizes an image to specific pixel dimensions.\n\ncompress_file(source_path: string, output_path: string, compression_level?: integer)\n  Compresses a file into an archive (.zip, .tar.gz, .gz based on output_path extension).",
+      "prompt": "Make the image at /photos/banner.png smaller in file size for web delivery. Save to /photos/banner_web.png.",
+      "expected_tool": "compress_file",
+      "expected_args": {
+        "source_path": "/photos/banner.png",
+        "output_path": "/photos/banner_web.png"
+      },
+      "required_args": [
+        "source_path",
+        "output_path"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_m08",
+      "name": "resize_exact_dimensions_no_aspect",
+      "category": "extreme_mcp",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP).\nWhen you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n\nconvert_units(value: number, from_unit: string, to_unit: string)\n  Converts a numeric value between units. Units include: km, miles, kg, lbs, seconds, milliseconds, celsius, fahrenheit, meters, feet.\n\nschedule_task(task_name: string, cron_expression: string, timezone: string, enabled: boolean, max_retries?: integer, tags?: array)\n  Schedules a recurring task using standard 5-field cron (minute hour day month weekday), IANA timezone.\n\nexport_report(report_id: string, format: \"pdf\"|\"csv\"|\"xlsx\"|\"json\", destination: string, date_range: {start: string, end: string}, include_charts?: boolean)\n  Exports a report template to a file. date_range uses ISO 8601 dates.\n\nsearch_records(query: string, search_type: \"by_id\"|\"by_name\"|\"full_text\", limit?: integer, offset?: integer)\n  Searches database records. Use by_id for numeric/alphanumeric IDs, by_name for proper names, full_text for content search.\n\ntransfer_funds(from_account: string, to_account: string, amount: number, currency: string, idempotency_key: string, memo?: string)\n  Transfers funds between accounts. idempotency_key prevents duplicate transfers. currency is ISO 4217.\n\nresize_image(source_path: string, output_path: string, width: integer, height: integer, maintain_aspect_ratio?: boolean)\n  Resizes an image to specific pixel dimensions.\n\ncompress_file(source_path: string, output_path: string, compression_level?: integer)\n  Compresses a file into an archive (.zip, .tar.gz, .gz based on output_path extension).",
+      "prompt": "Resize the image /assets/logo.png to exactly 200 pixels wide and 100 pixels tall (do not maintain aspect ratio). Save to /assets/logo_small.png.",
+      "expected_tool": "resize_image",
+      "expected_args": {
+        "source_path": "/assets/logo.png",
+        "output_path": "/assets/logo_small.png",
+        "width": "200",
+        "height": "100",
+        "maintain_aspect_ratio": "false"
+      },
+      "required_args": [
+        "source_path",
+        "output_path",
+        "width",
+        "height",
+        "maintain_aspect_ratio"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_m09",
+      "name": "convert_celsius_to_fahrenheit",
+      "category": "extreme_mcp",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP).\nWhen you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n\nconvert_units(value: number, from_unit: string, to_unit: string)\n  Converts a numeric value between units. Units include: km, miles, kg, lbs, seconds, milliseconds, celsius, fahrenheit, meters, feet.\n\nschedule_task(task_name: string, cron_expression: string, timezone: string, enabled: boolean, max_retries?: integer, tags?: array)\n  Schedules a recurring task using standard 5-field cron (minute hour day month weekday), IANA timezone.\n\nexport_report(report_id: string, format: \"pdf\"|\"csv\"|\"xlsx\"|\"json\", destination: string, date_range: {start: string, end: string}, include_charts?: boolean)\n  Exports a report template to a file. date_range uses ISO 8601 dates.\n\nsearch_records(query: string, search_type: \"by_id\"|\"by_name\"|\"full_text\", limit?: integer, offset?: integer)\n  Searches database records. Use by_id for numeric/alphanumeric IDs, by_name for proper names, full_text for content search.\n\ntransfer_funds(from_account: string, to_account: string, amount: number, currency: string, idempotency_key: string, memo?: string)\n  Transfers funds between accounts. idempotency_key prevents duplicate transfers. currency is ISO 4217.\n\nresize_image(source_path: string, output_path: string, width: integer, height: integer, maintain_aspect_ratio?: boolean)\n  Resizes an image to specific pixel dimensions.\n\ncompress_file(source_path: string, output_path: string, compression_level?: integer)\n  Compresses a file into an archive (.zip, .tar.gz, .gz based on output_path extension).",
+      "prompt": "What is 37 degrees Celsius converted to Fahrenheit?",
+      "expected_tool": "convert_units",
+      "expected_args": {
+        "value": "37",
+        "from_unit": "celsius",
+        "to_unit": "fahrenheit"
+      },
+      "required_args": [
+        "value",
+        "from_unit",
+        "to_unit"
+      ],
+      "max_tokens": 600
+    },
+    {
+      "id": "e_m10",
+      "name": "export_report_json_no_charts",
+      "category": "extreme_mcp",
+      "eval_type": "tool_call",
+      "difficulty": "extreme",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP).\nWhen you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n\nconvert_units(value: number, from_unit: string, to_unit: string)\n  Converts a numeric value between units. Units include: km, miles, kg, lbs, seconds, milliseconds, celsius, fahrenheit, meters, feet.\n\nschedule_task(task_name: string, cron_expression: string, timezone: string, enabled: boolean, max_retries?: integer, tags?: array)\n  Schedules a recurring task using standard 5-field cron (minute hour day month weekday), IANA timezone.\n\nexport_report(report_id: string, format: \"pdf\"|\"csv\"|\"xlsx\"|\"json\", destination: string, date_range: {start: string, end: string}, include_charts?: boolean)\n  Exports a report template to a file. date_range uses ISO 8601 dates.\n\nsearch_records(query: string, search_type: \"by_id\"|\"by_name\"|\"full_text\", limit?: integer, offset?: integer)\n  Searches database records. Use by_id for numeric/alphanumeric IDs, by_name for proper names, full_text for content search.\n\ntransfer_funds(from_account: string, to_account: string, amount: number, currency: string, idempotency_key: string, memo?: string)\n  Transfers funds between accounts. idempotency_key prevents duplicate transfers. currency is ISO 4217.\n\nresize_image(source_path: string, output_path: string, width: integer, height: integer, maintain_aspect_ratio?: boolean)\n  Resizes an image to specific pixel dimensions.\n\ncompress_file(source_path: string, output_path: string, compression_level?: integer)\n  Compresses a file into an archive (.zip, .tar.gz, .gz based on output_path extension).",
+      "prompt": "Export the 'user_activity' report as JSON to '/tmp/activity.json' for December 2025 (2025-12-01 to 2025-12-31). Do not include charts.",
+      "expected_tool": "export_report",
+      "expected_args": {
+        "report_id": "user_activity",
+        "format": "json",
+        "destination": "/tmp/activity.json",
+        "include_charts": "false"
+      },
+      "required_args": [
+        "report_id",
+        "format",
+        "destination",
+        "date_range",
+        "include_charts"
+      ],
+      "max_tokens": 600
+    }
+  ]
+}
