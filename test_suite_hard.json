@@ -1,0 +1,880 @@
+{
+  "version": "hard-1.0",
+  "description": "Hard discriminating benchmark — targets models scoring 90-100% on v3. 40 tests: 10 hard coding (DP + algorithms) + 10 hard reasoning + 10 hard agentic (8-tool palette with new tools) + 10 hard MCP (complex schemas).",
+  "design_notes": {
+    "coding": "Classic hard algorithm problems: LCS, edit distance, trapping rain water, coin change DP, word break DP, decode ways, top-k frequent, spiral matrix, number of islands, all permutations.",
+    "reasoning": "Multi-step problems requiring algebra, combinatorics, modular arithmetic, conditional probability, rate problems, logic deduction, and sequence sums.",
+    "agentic": "Expanded to 8 tools including new write_file, create_event, get_user_profile. Tests require choosing between plausible alternatives: execute_python vs web_search, write_file vs send_email, get_user_profile vs query_database.",
+    "mcp": "Complex schemas with nested dict params, list params, boolean flags, enum values, all-required-params calls, tool disambiguation (3 tools), and tool-chaining (what to call next given a prior result)."
+  },
+  "recommended_num_ctx": 8192,
+  "tests": [
+    {
+      "id": "h_c01",
+      "name": "longest_common_subsequence",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "hard",
+      "prompt": "Write a Python function `lcs(s1: str, s2: str) -> int` that returns the length of the longest common subsequence of strings s1 and s2 using dynamic programming. Output only the function definition.",
+      "function_name": "lcs",
+      "test_cases": [
+        {
+          "call": "lcs('ABCBDAB', 'BDCABA')",
+          "expected": 4
+        },
+        {
+          "call": "lcs('', 'abc')",
+          "expected": 0
+        },
+        {
+          "call": "lcs('abc', 'abc')",
+          "expected": 3
+        },
+        {
+          "call": "lcs('AGGTAB', 'GXTXAYB')",
+          "expected": 4
+        },
+        {
+          "call": "lcs('ABCD', 'ACDF')",
+          "expected": 3
+        }
+      ],
+      "max_tokens": 500
+    },
+    {
+      "id": "h_c02",
+      "name": "edit_distance",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "hard",
+      "prompt": "Write a Python function `edit_distance(s1: str, s2: str) -> int` that returns the minimum number of single-character edits (insert, delete, substitute) needed to transform s1 into s2 (Levenshtein distance). Use dynamic programming. Output only the function definition.",
+      "function_name": "edit_distance",
+      "test_cases": [
+        {
+          "call": "edit_distance('kitten', 'sitting')",
+          "expected": 3
+        },
+        {
+          "call": "edit_distance('', 'abc')",
+          "expected": 3
+        },
+        {
+          "call": "edit_distance('abc', 'abc')",
+          "expected": 0
+        },
+        {
+          "call": "edit_distance('horse', 'ros')",
+          "expected": 3
+        },
+        {
+          "call": "edit_distance('sunday', 'saturday')",
+          "expected": 3
+        }
+      ],
+      "max_tokens": 500
+    },
+    {
+      "id": "h_c03",
+      "name": "trap_rain_water",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "hard",
+      "prompt": "Write a Python function `rain_water(height: list) -> int` that calculates how much water can be trapped between the bars represented by the heights in the list. Output only the function definition.",
+      "function_name": "rain_water",
+      "test_cases": [
+        {
+          "call": "rain_water([0,1,0,2,1,0,1,3,2,1,2,1])",
+          "expected": 6
+        },
+        {
+          "call": "rain_water([4,2,0,3,2,5])",
+          "expected": 9
+        },
+        {
+          "call": "rain_water([])",
+          "expected": 0
+        },
+        {
+          "call": "rain_water([3,0,2,0,4])",
+          "expected": 7
+        },
+        {
+          "call": "rain_water([1,2,3,4,5])",
+          "expected": 0
+        }
+      ],
+      "max_tokens": 500
+    },
+    {
+      "id": "h_c04",
+      "name": "coin_change_dp",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "hard",
+      "prompt": "Write a Python function `coin_change(coins: list, amount: int) -> int` that returns the fewest number of coins needed to make up the given amount using dynamic programming. Return -1 if the amount cannot be made. Return 0 if amount is 0. Output only the function definition.",
+      "function_name": "coin_change",
+      "test_cases": [
+        {
+          "call": "coin_change([1, 5, 11], 15)",
+          "expected": 3
+        },
+        {
+          "call": "coin_change([2], 3)",
+          "expected": -1
+        },
+        {
+          "call": "coin_change([1, 2, 5], 11)",
+          "expected": 3
+        },
+        {
+          "call": "coin_change([1], 0)",
+          "expected": 0
+        },
+        {
+          "call": "coin_change([186, 419, 83, 408], 6249)",
+          "expected": 20
+        }
+      ],
+      "max_tokens": 500
+    },
+    {
+      "id": "h_c05",
+      "name": "word_break_dp",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "hard",
+      "prompt": "Write a Python function `word_break(s: str, word_dict: list) -> bool` that returns True if s can be segmented into a space-separated sequence of one or more words from word_dict. Use dynamic programming. Output only the function definition.",
+      "function_name": "word_break",
+      "test_cases": [
+        {
+          "call": "word_break('leetcode', ['leet', 'code'])",
+          "expected": true
+        },
+        {
+          "call": "word_break('applepenapple', ['apple', 'pen'])",
+          "expected": true
+        },
+        {
+          "call": "word_break('catsandog', ['cats', 'dog', 'sand', 'and', 'cat'])",
+          "expected": false
+        },
+        {
+          "call": "word_break('a', ['b'])",
+          "expected": false
+        },
+        {
+          "call": "word_break('', ['a'])",
+          "expected": true
+        }
+      ],
+      "max_tokens": 500
+    },
+    {
+      "id": "h_c06",
+      "name": "decode_ways",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "hard",
+      "prompt": "Write a Python function `decode_ways(s: str) -> int` that returns the number of ways to decode a digit string where 'A'=1, 'B'=2, ..., 'Z'=26. Leading zeros make a sequence invalid. Use dynamic programming. Output only the function definition.",
+      "function_name": "decode_ways",
+      "test_cases": [
+        {
+          "call": "decode_ways('12')",
+          "expected": 2
+        },
+        {
+          "call": "decode_ways('226')",
+          "expected": 3
+        },
+        {
+          "call": "decode_ways('06')",
+          "expected": 0
+        },
+        {
+          "call": "decode_ways('10')",
+          "expected": 1
+        },
+        {
+          "call": "decode_ways('1')",
+          "expected": 1
+        }
+      ],
+      "max_tokens": 500
+    },
+    {
+      "id": "h_c07",
+      "name": "top_k_frequent",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `top_k_frequent(nums: list, k: int) -> list` that returns the k most frequent elements sorted in ascending order. The test inputs are designed so there are no frequency ties among the top-k elements. Output only the function definition.",
+      "function_name": "top_k_frequent",
+      "test_cases": [
+        {
+          "call": "top_k_frequent([1,1,1,2,2,3], 2)",
+          "expected": [
+            1,
+            2
+          ]
+        },
+        {
+          "call": "top_k_frequent([1], 1)",
+          "expected": [
+            1
+          ]
+        },
+        {
+          "call": "top_k_frequent([3,3,1,1,1,2], 2)",
+          "expected": [
+            1,
+            3
+          ]
+        },
+        {
+          "call": "top_k_frequent([4,4,4,5,5,6], 1)",
+          "expected": [
+            4
+          ]
+        }
+      ],
+      "max_tokens": 400
+    },
+    {
+      "id": "h_c08",
+      "name": "spiral_matrix",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "hard",
+      "prompt": "Write a Python function `spiral_order(matrix: list) -> list` that returns all elements of an m×n matrix in spiral order (clockwise from top-left). Handle empty matrices. Output only the function definition.",
+      "function_name": "spiral_order",
+      "test_cases": [
+        {
+          "call": "spiral_order([[1,2,3],[4,5,6],[7,8,9]])",
+          "expected": [
+            1,
+            2,
+            3,
+            6,
+            9,
+            8,
+            7,
+            4,
+            5
+          ]
+        },
+        {
+          "call": "spiral_order([[1,2],[3,4]])",
+          "expected": [
+            1,
+            2,
+            4,
+            3
+          ]
+        },
+        {
+          "call": "spiral_order([[1]])",
+          "expected": [
+            1
+          ]
+        },
+        {
+          "call": "spiral_order([[1,2,3,4]])",
+          "expected": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "call": "spiral_order([])",
+          "expected": []
+        }
+      ],
+      "max_tokens": 500
+    },
+    {
+      "id": "h_c09",
+      "name": "number_of_islands",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "hard",
+      "prompt": "Write a Python function `number_of_islands(grid: list) -> int` that counts the number of islands in a 2D grid of '1' (land) and '0' (water). An island is surrounded by water and formed by connecting adjacent land cells horizontally or vertically. You may modify the input grid. Output only the function definition.",
+      "function_name": "number_of_islands",
+      "test_cases": [
+        {
+          "call": "number_of_islands([['1','1','0'],['0','1','0'],['1','0','1']])",
+          "expected": 3
+        },
+        {
+          "call": "number_of_islands([['1','1','1'],['0','1','0'],['1','1','1']])",
+          "expected": 1
+        },
+        {
+          "call": "number_of_islands([['0','0','0']])",
+          "expected": 0
+        },
+        {
+          "call": "number_of_islands([['1','1','0','0'],['1','1','0','0'],['0','0','1','0'],['0','0','0','1']])",
+          "expected": 3
+        }
+      ],
+      "max_tokens": 500
+    },
+    {
+      "id": "h_c10",
+      "name": "all_permutations",
+      "category": "coding",
+      "eval_type": "code_execution",
+      "difficulty": "medium",
+      "prompt": "Write a Python function `permutations(nums: list) -> list` that returns all permutations of a list of distinct integers as a sorted list of lists. The returned list must be sorted (lexicographic order) and each inner element must be a list, not a tuple. Output only the function definition.",
+      "function_name": "permutations",
+      "test_cases": [
+        {
+          "call": "permutations([1,2,3])",
+          "expected": [
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              1,
+              3,
+              2
+            ],
+            [
+              2,
+              1,
+              3
+            ],
+            [
+              2,
+              3,
+              1
+            ],
+            [
+              3,
+              1,
+              2
+            ],
+            [
+              3,
+              2,
+              1
+            ]
+          ]
+        },
+        {
+          "call": "permutations([1,2])",
+          "expected": [
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              1
+            ]
+          ]
+        },
+        {
+          "call": "permutations([1])",
+          "expected": [
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "max_tokens": 500
+    },
+    {
+      "id": "h_r01",
+      "name": "combinatorics_handshakes",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "medium",
+      "prompt": "If there are 10 people at a party and everyone shakes hands with every other person exactly once, how many handshakes take place in total? Answer with the number only.",
+      "expected_number": 45,
+      "tolerance": 0.001,
+      "max_tokens": 15
+    },
+    {
+      "id": "h_r02",
+      "name": "conditional_probability_boys",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "hard",
+      "prompt": "A family has exactly two children. Given that at least one of the children is a boy, what is the probability that both children are boys? Give your answer as a decimal rounded to 2 decimal places. Answer with the number only.",
+      "expected_number": 0.33,
+      "tolerance": 0.005,
+      "max_tokens": 30
+    },
+    {
+      "id": "h_r03",
+      "name": "system_of_equations",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "medium",
+      "prompt": "Notebooks cost $5 each and pens cost $2 each. A student buys a total of 10 items and spends exactly $32. How many notebooks did the student buy? Show your reasoning, then state the number.",
+      "expected_number": 4,
+      "tolerance": 0.001,
+      "max_tokens": 300
+    },
+    {
+      "id": "h_r04",
+      "name": "modular_arithmetic",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "hard",
+      "prompt": "What is the remainder when 2^10 is divided by 7? Reason step by step, then state the number.",
+      "expected_number": 2,
+      "tolerance": 0.001,
+      "max_tokens": 300
+    },
+    {
+      "id": "h_r05",
+      "name": "three_worker_rate",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "medium",
+      "prompt": "Alice, Bob, and Carol can each complete a task alone in 4, 6, and 12 hours respectively. How many hours does it take if all three work together simultaneously? Give your answer as a decimal rounded to 2 decimal places. Answer with the number only.",
+      "expected_number": 2.0,
+      "tolerance": 0.005,
+      "max_tokens": 250
+    },
+    {
+      "id": "h_r06",
+      "name": "two_trains_meeting",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "medium",
+      "prompt": "Train A departs from City X towards City Y at 60 km/h. At the same time, Train B departs from City Y towards City X at 90 km/h. The cities are 300 km apart. How many kilometres from City X do the trains meet? Answer with the number only.",
+      "expected_number": 120,
+      "tolerance": 0.01,
+      "max_tokens": 200
+    },
+    {
+      "id": "h_r07",
+      "name": "percentage_chain",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "medium",
+      "prompt": "A jacket's price increases by 20% in January, then decreases by 20% in February. What is the net percentage change from the original price? Use a negative number if the price fell (e.g. -4). Answer with the number only.",
+      "expected_number": -4,
+      "tolerance": 0.01,
+      "max_tokens": 200
+    },
+    {
+      "id": "h_r08",
+      "name": "logic_puzzle_four_jobs",
+      "category": "reasoning",
+      "eval_type": "contains_all",
+      "difficulty": "hard",
+      "prompt": "Four friends — Alice, Bob, Carol, and Dave — each have a unique job: doctor, engineer, lawyer, or teacher.\nClues:\n1. Alice is neither the doctor nor the engineer.\n2. Bob is not the lawyer.\n3. Carol is the teacher.\n4. Dave is not the engineer.\nReason step by step and state what job each person has.",
+      "required_facts": [
+        "alice",
+        "lawyer",
+        "bob",
+        "engineer",
+        "dave",
+        "doctor"
+      ],
+      "max_tokens": 400
+    },
+    {
+      "id": "h_r09",
+      "name": "arithmetic_sequence_sum",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "hard",
+      "prompt": "An arithmetic sequence starts at 5 with a common difference of 3. What is the minimum number of terms needed so that the sum of the sequence is at least 110? Show your working, then state the number.",
+      "expected_number": 8,
+      "tolerance": 0.001,
+      "max_tokens": 400
+    },
+    {
+      "id": "h_r10",
+      "name": "quarterly_compound_interest",
+      "category": "reasoning",
+      "eval_type": "numeric",
+      "difficulty": "hard",
+      "prompt": "$2000 is invested at an annual rate of 8%, compounded quarterly. What is the total value after 2 years? Round to 2 decimal places. Answer with the number only.",
+      "expected_number": 2343.32,
+      "tolerance": 0.005,
+      "max_tokens": 60
+    },
+    {
+      "id": "h_a01",
+      "name": "execute_vs_search_power",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- read_file(path: str) — Read a file from the local filesystem\n- write_file(path: str, content: str) — Write/save content to a local file\n- web_search(query: str) — Search the internet for current or real-time information\n- send_email(to: str, subject: str, body: str) — Send an email message\n- execute_python(code: str) — Execute Python code and return its output\n- query_database(sql: str, db: str) — Run a SQL query against a named database\n- create_event(title: str, datetime: str, duration_minutes: int) — Create a calendar event\n- get_user_profile(user_id: int) — Retrieve a user profile by numeric ID",
+      "prompt": "Calculate the exact integer value of 2^64. Show the precise result.",
+      "expected_tool": "execute_python",
+      "expected_args": {},
+      "required_args": [
+        "code"
+      ],
+      "max_tokens": 120,
+      "note": "Only execute_python can return the exact 64-bit integer without rounding"
+    },
+    {
+      "id": "h_a02",
+      "name": "write_file_not_email",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- read_file(path: str) — Read a file from the local filesystem\n- write_file(path: str, content: str) — Write/save content to a local file\n- web_search(query: str) — Search the internet for current or real-time information\n- send_email(to: str, subject: str, body: str) — Send an email message\n- execute_python(code: str) — Execute Python code and return its output\n- query_database(sql: str, db: str) — Run a SQL query against a named database\n- create_event(title: str, datetime: str, duration_minutes: int) — Create a calendar event\n- get_user_profile(user_id: int) — Retrieve a user profile by numeric ID",
+      "prompt": "Save the string 'Session complete. 42 records processed.' to the file /logs/session.log on the server.",
+      "expected_tool": "write_file",
+      "expected_args": {
+        "path": "/logs/session.log"
+      },
+      "required_args": [
+        "path",
+        "content"
+      ],
+      "max_tokens": 120,
+      "note": "Needs write_file, not send_email or execute_python"
+    },
+    {
+      "id": "h_a03",
+      "name": "create_calendar_event",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- read_file(path: str) — Read a file from the local filesystem\n- write_file(path: str, content: str) — Write/save content to a local file\n- web_search(query: str) — Search the internet for current or real-time information\n- send_email(to: str, subject: str, body: str) — Send an email message\n- execute_python(code: str) — Execute Python code and return its output\n- query_database(sql: str, db: str) — Run a SQL query against a named database\n- create_event(title: str, datetime: str, duration_minutes: int) — Create a calendar event\n- get_user_profile(user_id: int) — Retrieve a user profile by numeric ID",
+      "prompt": "Create a calendar event called 'Product Launch' for 2026-05-01 at 10:00, lasting 120 minutes.",
+      "expected_tool": "create_event",
+      "expected_args": {
+        "title": "Product Launch",
+        "duration_minutes": 120
+      },
+      "required_args": [
+        "title",
+        "datetime",
+        "duration_minutes"
+      ],
+      "max_tokens": 150,
+      "note": "New create_event tool — model must not default to send_email or web_search"
+    },
+    {
+      "id": "h_a04",
+      "name": "get_user_profile_by_id",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- read_file(path: str) — Read a file from the local filesystem\n- write_file(path: str, content: str) — Write/save content to a local file\n- web_search(query: str) — Search the internet for current or real-time information\n- send_email(to: str, subject: str, body: str) — Send an email message\n- execute_python(code: str) — Execute Python code and return its output\n- query_database(sql: str, db: str) — Run a SQL query against a named database\n- create_event(title: str, datetime: str, duration_minutes: int) — Create a calendar event\n- get_user_profile(user_id: int) — Retrieve a user profile by numeric ID",
+      "prompt": "Retrieve the profile details for user ID 1042.",
+      "expected_tool": "get_user_profile",
+      "expected_args": {
+        "user_id": 1042
+      },
+      "required_args": [
+        "user_id"
+      ],
+      "max_tokens": 100,
+      "note": "get_user_profile is more specific than query_database for a single user lookup by ID"
+    },
+    {
+      "id": "h_a05",
+      "name": "execute_prime_generator",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- read_file(path: str) — Read a file from the local filesystem\n- write_file(path: str, content: str) — Write/save content to a local file\n- web_search(query: str) — Search the internet for current or real-time information\n- send_email(to: str, subject: str, body: str) — Send an email message\n- execute_python(code: str) — Execute Python code and return its output\n- query_database(sql: str, db: str) — Run a SQL query against a named database\n- create_event(title: str, datetime: str, duration_minutes: int) — Create a calendar event\n- get_user_profile(user_id: int) — Retrieve a user profile by numeric ID",
+      "prompt": "Write and execute Python code to generate all prime numbers between 1 and 100 and print them.",
+      "expected_tool": "execute_python",
+      "expected_args": {},
+      "required_args": [
+        "code"
+      ],
+      "max_tokens": 150,
+      "note": "Explicitly says 'write and execute Python code' — not web_search"
+    },
+    {
+      "id": "h_a06",
+      "name": "web_search_live_stock",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "easy",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- read_file(path: str) — Read a file from the local filesystem\n- write_file(path: str, content: str) — Write/save content to a local file\n- web_search(query: str) — Search the internet for current or real-time information\n- send_email(to: str, subject: str, body: str) — Send an email message\n- execute_python(code: str) — Execute Python code and return its output\n- query_database(sql: str, db: str) — Run a SQL query against a named database\n- create_event(title: str, datetime: str, duration_minutes: int) — Create a calendar event\n- get_user_profile(user_id: int) — Retrieve a user profile by numeric ID",
+      "prompt": "What is the current share price of NVIDIA? I need live market data.",
+      "expected_tool": "web_search",
+      "expected_args": {},
+      "required_args": [
+        "query"
+      ],
+      "max_tokens": 100,
+      "note": "Live/current data requires web_search, not query_database or execute_python"
+    },
+    {
+      "id": "h_a07",
+      "name": "query_db_top_customers",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- read_file(path: str) — Read a file from the local filesystem\n- write_file(path: str, content: str) — Write/save content to a local file\n- web_search(query: str) — Search the internet for current or real-time information\n- send_email(to: str, subject: str, body: str) — Send an email message\n- execute_python(code: str) — Execute Python code and return its output\n- query_database(sql: str, db: str) — Run a SQL query against a named database\n- create_event(title: str, datetime: str, duration_minutes: int) — Create a calendar event\n- get_user_profile(user_id: int) — Retrieve a user profile by numeric ID",
+      "prompt": "From the 'analytics_db', find the top 3 customers who spent the most in the last 30 days.",
+      "expected_tool": "query_database",
+      "expected_args": {
+        "db": "analytics_db"
+      },
+      "required_args": [
+        "sql",
+        "db"
+      ],
+      "max_tokens": 180,
+      "note": "Named database + SQL required — not web_search or execute_python"
+    },
+    {
+      "id": "h_a08",
+      "name": "write_file_export",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- read_file(path: str) — Read a file from the local filesystem\n- write_file(path: str, content: str) — Write/save content to a local file\n- web_search(query: str) — Search the internet for current or real-time information\n- send_email(to: str, subject: str, body: str) — Send an email message\n- execute_python(code: str) — Execute Python code and return its output\n- query_database(sql: str, db: str) — Run a SQL query against a named database\n- create_event(title: str, datetime: str, duration_minutes: int) — Create a calendar event\n- get_user_profile(user_id: int) — Retrieve a user profile by numeric ID",
+      "prompt": "Export the Q1 sales report and save it to /exports/sales_2026_q1.json on the server disk.",
+      "expected_tool": "write_file",
+      "expected_args": {
+        "path": "/exports/sales_2026_q1.json"
+      },
+      "required_args": [
+        "path",
+        "content"
+      ],
+      "max_tokens": 120,
+      "note": "Save to disk = write_file, not send_email"
+    },
+    {
+      "id": "h_a09",
+      "name": "create_event_45min",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- read_file(path: str) — Read a file from the local filesystem\n- write_file(path: str, content: str) — Write/save content to a local file\n- web_search(query: str) — Search the internet for current or real-time information\n- send_email(to: str, subject: str, body: str) — Send an email message\n- execute_python(code: str) — Execute Python code and return its output\n- query_database(sql: str, db: str) — Run a SQL query against a named database\n- create_event(title: str, datetime: str, duration_minutes: int) — Create a calendar event\n- get_user_profile(user_id: int) — Retrieve a user profile by numeric ID",
+      "prompt": "Book a 45-minute one-on-one meeting titled 'Performance Review' for 2026-04-10 at 14:30.",
+      "expected_tool": "create_event",
+      "expected_args": {
+        "title": "Performance Review",
+        "duration_minutes": 45
+      },
+      "required_args": [
+        "title",
+        "datetime",
+        "duration_minutes"
+      ],
+      "max_tokens": 150,
+      "note": "Requires create_event with correct duration (45), not send_email"
+    },
+    {
+      "id": "h_a10",
+      "name": "get_user_vs_query_db",
+      "category": "agentic",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object with no other text before or after it.\nFormat: {\"tool\": \"<tool_name>\", \"args\": {<key>: <value>, ...}}\n\nAvailable tools:\n- read_file(path: str) — Read a file from the local filesystem\n- write_file(path: str, content: str) — Write/save content to a local file\n- web_search(query: str) — Search the internet for current or real-time information\n- send_email(to: str, subject: str, body: str) — Send an email message\n- execute_python(code: str) — Execute Python code and return its output\n- query_database(sql: str, db: str) — Run a SQL query against a named database\n- create_event(title: str, datetime: str, duration_minutes: int) — Create a calendar event\n- get_user_profile(user_id: int) — Retrieve a user profile by numeric ID",
+      "prompt": "Pull up the profile for the user whose ID is 99.",
+      "expected_tool": "get_user_profile",
+      "expected_args": {
+        "user_id": 99
+      },
+      "required_args": [
+        "user_id"
+      ],
+      "max_tokens": 100,
+      "note": "get_user_profile is the correct specific tool; model must not fall back to query_database"
+    },
+    {
+      "id": "h_mcp01",
+      "name": "mcp_nested_dict_fields",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP). When you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- update_record(table: str, record_id: int, fields: dict) — Updates fields on a DB record\n- delete_record(table: str, record_id: int) — Permanently deletes a record",
+      "prompt": "Update the products table: record ID 42, set price to 99.99, status to 'active', and stock to 150.",
+      "expected_tool": "update_record",
+      "expected_args": {
+        "table": "products",
+        "record_id": 42
+      },
+      "required_args": [
+        "table",
+        "record_id",
+        "fields"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "h_mcp02",
+      "name": "mcp_list_parameter",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP). When you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- batch_process(items: list, operation: str) — Apply an operation to a list of files\n- process_file(path: str, operation: str) — Apply an operation to a single file",
+      "prompt": "Compress the following three files: report.pdf, summary.docx, data.csv",
+      "expected_tool": "batch_process",
+      "expected_args": {},
+      "required_args": [
+        "items",
+        "operation"
+      ],
+      "max_tokens": 120
+    },
+    {
+      "id": "h_mcp03",
+      "name": "mcp_all_params_scheduler",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP). When you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- schedule_job(name: str, run_at: str, timeout_seconds: int, retry: bool) — Schedule a background job. run_at is ISO 8601.\n- cancel_job(name: str) — Cancel a previously scheduled job",
+      "prompt": "Schedule a job called 'nightly_backup' to run at 2026-04-01T03:00:00, with a 300-second timeout, and retries enabled.",
+      "expected_tool": "schedule_job",
+      "expected_args": {
+        "name": "nightly_backup",
+        "timeout_seconds": 300,
+        "retry": true
+      },
+      "required_args": [
+        "name",
+        "run_at",
+        "timeout_seconds",
+        "retry"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "h_mcp04",
+      "name": "mcp_export_format_enum",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP). When you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- export_report(format: str, include_headers: bool, max_rows: int) — Export data. format must be \"csv\", \"json\", or \"xlsx\".\n- generate_summary(title: str, rows: int) — Generate a text summary report",
+      "prompt": "Export a CSV report that includes column headers, capped at 500 rows.",
+      "expected_tool": "export_report",
+      "expected_args": {
+        "format": "csv",
+        "include_headers": true,
+        "max_rows": 500
+      },
+      "required_args": [
+        "format",
+        "include_headers",
+        "max_rows"
+      ],
+      "max_tokens": 120
+    },
+    {
+      "id": "h_mcp05",
+      "name": "mcp_pagination_params",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP). When you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- list_records(resource: str, page: int, per_page: int) — Paginate through a resource\n- get_record(resource: str, id: int) — Fetch a single record by ID",
+      "prompt": "Get page 4 of the 'transactions' resource, showing 25 results per page.",
+      "expected_tool": "list_records",
+      "expected_args": {
+        "resource": "transactions",
+        "page": 4,
+        "per_page": 25
+      },
+      "required_args": [
+        "resource",
+        "page",
+        "per_page"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "h_mcp06",
+      "name": "mcp_internal_kb_not_web",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP). When you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- search_knowledge_base(query: str) — Search our private internal knowledge base\n- search_web(query: str) — Search the public internet\n- query_database(sql: str, db: str) — Run SQL against a named database",
+      "prompt": "What are our internal best practices for database indexing? Look in the internal knowledge base.",
+      "expected_tool": "search_knowledge_base",
+      "expected_args": {},
+      "required_args": [
+        "query"
+      ],
+      "max_tokens": 100
+    },
+    {
+      "id": "h_mcp07",
+      "name": "mcp_metric_with_tags",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP). When you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- record_metric(name: str, value: float, unit: str, tags: dict) — Record a named metric with optional tags\n- log_event(event_type: str, details: str) — Log a structured event",
+      "prompt": "Record a metric: the checkout service's API response time is 245 milliseconds. Tag it for the 'production' environment.",
+      "expected_tool": "record_metric",
+      "expected_args": {
+        "value": 245.0,
+        "unit": "ms"
+      },
+      "required_args": [
+        "name",
+        "value",
+        "unit"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "h_mcp08",
+      "name": "mcp_ticket_priority_critical",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "medium",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP). When you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- create_ticket(title: str, description: str, priority: str) — Create a support ticket. priority: \"low\"|\"medium\"|\"high\"|\"critical\".\n- update_ticket(ticket_id: int, priority: str, status: str) — Update an existing ticket",
+      "prompt": "Create a critical-priority ticket: title 'Database Down', description 'Production database is not responding to queries'.",
+      "expected_tool": "create_ticket",
+      "expected_args": {
+        "priority": "critical"
+      },
+      "required_args": [
+        "title",
+        "description",
+        "priority"
+      ],
+      "max_tokens": 150
+    },
+    {
+      "id": "h_mcp09",
+      "name": "mcp_nested_connection_object",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP). When you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- run_query(connection: dict, query: str, timeout: int) — Execute SQL. connection must include {host, port, database}.\n- list_tables(connection: dict) — List all tables in a database",
+      "prompt": "Run 'SELECT COUNT(*) FROM orders' on the production DB at host db.prod.internal, port 5432, database 'orders', with a 30-second timeout.",
+      "expected_tool": "run_query",
+      "expected_args": {},
+      "required_args": [
+        "connection",
+        "query",
+        "timeout"
+      ],
+      "max_tokens": 200
+    },
+    {
+      "id": "h_mcp10",
+      "name": "mcp_tool_chaining_next_step",
+      "category": "mcp",
+      "eval_type": "tool_call",
+      "difficulty": "hard",
+      "system": "You are an AI assistant with tools connected via the Model Context Protocol (MCP). When you need to use a tool, output ONLY a JSON object:\n{\"tool\": \"<tool_name>\", \"args\": {<param>: <value>, ...}}\n\nAvailable tools:\n- search_web(query: str) — Search the internet and return a list of result URLs\n- read_url(url: str) — Fetch and return the full text content of a URL\n- write_file(path: str, content: str) — Save text content to a local file",
+      "prompt": "You have just called search_web and received these results:\n[{\"url\": \"https://docs.example.com/api\", \"title\": \"API Documentation\"}, {\"url\": \"https://wiki.example.com/setup\", \"title\": \"Setup Guide\"}]\n\nThe user now wants to read the full content of the first result. What is your next tool call?",
+      "expected_tool": "read_url",
+      "expected_args": {
+        "url": "https://docs.example.com/api"
+      },
+      "required_args": [
+        "url"
+      ],
+      "max_tokens": 100
+    }
+  ]
+}
