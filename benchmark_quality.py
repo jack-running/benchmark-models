@@ -34,6 +34,23 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+# Import agentic evaluation framework
+try:
+    from benchmark_agentic import (
+        MockToolSandbox,
+        MultiTurnConversationRunner,
+        score_tool_call_graded,
+        score_multi_turn_workflow,
+        ADVERSARIAL_TESTS,
+        CONTEXT_STRESS_TESTS,
+        generate_agent_metrics_report,
+        TurnResult,
+        MultiTurnResult,
+    )
+    AGENTIC_FRAMEWORK_AVAILABLE = True
+except ImportError:
+    AGENTIC_FRAMEWORK_AVAILABLE = False
+
 # ─────────────────────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────────────────────
@@ -375,13 +392,32 @@ def eval_tool_call(
     expected_tool: str,
     expected_args: dict,
     required_args: Optional[list] = None,
+    use_graded_scoring: bool = False,
 ) -> dict:
     """
     Parse JSON tool call from model response, then verify:
       1. Correct tool name
       2. All required argument keys present
       3. Each expected_args value appears in the actual value (substring check)
+    
+    If use_graded_scoring=True, uses the advanced graded scoring system from
+    benchmark_agentic that provides detailed breakdown and partial credit.
     """
+    if use_graded_scoring and AGENTIC_FRAMEWORK_AVAILABLE:
+        parsed = parse_json_from_text(response)
+        graded_result = score_tool_call_graded(
+            parsed, expected_tool, expected_args, required_args
+        )
+        # Convert graded result to legacy format for backward compatibility
+        return {
+            "pass": graded_result["score"] >= 0.7,  # Threshold for "pass"
+            "score": graded_result["score"],
+            "reason": "; ".join(graded_result.get("issues", [])) or "OK",
+            "parsed": parsed,
+            "breakdown": graded_result.get("breakdown"),
+        }
+    
+    # Legacy binary evaluation
     parsed = parse_json_from_text(response)
     if parsed is None:
         return {"pass": False, "reason": "No valid JSON object found in response", "parsed": None}
@@ -399,7 +435,7 @@ def eval_tool_call(
     if tool_name != expected_tool:
         return {
             "pass":   False,
-            "reason": f"Wrong tool: expected '{expected_tool}', got '{tool_name}'",
+            "reason": f"Wro ng tool: expected '{expected_tool}', got '{tool_name}'",
             "parsed": parsed,
         }
 
@@ -1139,7 +1175,6 @@ def save_html_report(results: dict, categories: list[str], num_ctx: int, path: s
     for rank, (model, data) in enumerate(ranked, 1):
         o     = data["overall"]
         label, color, _ = classify(o["pass_rate"])
-        t_short = label.split()[-1]
         anchor  = re.sub(r'[^a-zA-Z0-9]', '_', model)
         cat_cells = "".join(
             f"<td>{data['categories'].get(c, {}).get('pass_rate', 0):.0f}%</td>"

@@ -5,7 +5,9 @@ Run this on your Windows machine:
     python diagnose_ollama.py
     python diagnose_ollama.py --model qwen3.5:27b --prompt "What is 17*23?"
 """
-import requests, json, argparse, sys
+import argparse
+import json
+import requests
 
 OLLAMA_HOST = "http://192.168.0.149:11434"
 

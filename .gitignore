@@ -1,29 +1,63 @@
-# Benchmark output files
-quality_*.json
-quality_*.html
-quality_*.csv
-benchmark_*.json
-benchmark_*.html
-benchmark_*.csv
+```
+# Logs and temp files
+*.log
+*.tmp
+*.swp
 
-# Python
+# Environment
+.env
+.env.local
+*.env.*
+
+# Dependencies
+.venv/
+venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-*.egg-info/
-dist/
-build/
-.venv/
-venv/
 
-# Editor
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Editors
 .vscode/
 .idea/
-*.swp
-*.swo
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Testing
+.coverage
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Compression
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```

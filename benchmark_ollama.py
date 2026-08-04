@@ -22,7 +22,6 @@ import os
 import sys
 import argparse
 from datetime import datetime
-from typing import Optional
 
 # ─────────────────────────────────────────────────────────────
 # CONFIG
@@ -522,9 +521,10 @@ def console_summary(results: dict):
     )
 
     cats = ["reasoning", "summarization", "coding", "agentic"]
-    print(f"\n{'='*110}")
-    print(f"  FINAL RANKINGS")
-    print(f"{'='*110}")
+    separator = "=" * 110
+    print(f"\n{separator}")
+    print("  FINAL RANKINGS")
+    print(separator)
     hdr = f"{'#':<4} {'Model':<48} {'Tier':<12} {'Quality':>7} {'TPS':>6} {'TTFT':>7}"
     for c in cats:
         hdr += f"  {c[:6].capitalize():>6}"
