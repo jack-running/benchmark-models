@@ -1,7 +1,8 @@
-```gitignore
 # Compiled and build artifacts
 *.pyc
 __pycache__/
+*.pyo
+*.pyd
 *.o
 *.obj
 *.out
@@ -20,38 +21,27 @@ venv/
 *.log
 *.tmp
 *.swp
+*.swo
 
 # Editors
 .vscode/
 .idea/
-*.swp
-*.swo
 
 # Coverage
 .coverage
 coverage/
 htmlcov/
 
-# Python specific
-*.pyc
-__pycache__/
-*.pyo
-*.pyd
-.Python
-*.so
-*.egg-info/
+# Python caches
 .eggs/
 .mypy_cache/
 .pytest_cache/
 .tox/
+*.egg-info/
 
 # System files
 .DS_Store
 Thumbs.db
-```
 
-Wait, let me reconsider this. The added files are just `HARNESS_USABILITY_README.md` and `benchmark_harness_usability.py` - these are source/config files only, no build artifacts, dependencies, or temp files in the change list.
-
-```gitignore
-
-```
+# Benchmark run output (large, regenerable; never commit)
+results/

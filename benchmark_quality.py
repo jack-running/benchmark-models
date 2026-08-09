@@ -15,7 +15,6 @@ Usage examples:
   python benchmark_quality.py --models deepseek-r1:32b qwen3.5:27b
   python benchmark_quality.py --categories coding agentic
   python benchmark_quality.py --suite my_tests.json               # custom test suite
-  python benchmark_quality.py --save-suite                        # export built-in suite to JSON
   python benchmark_quality.py --list                              # list models, don't benchmark
 """
 
@@ -34,22 +33,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-# Import agentic evaluation framework
-try:
-    from benchmark_agentic import (
-        MockToolSandbox,
-        MultiTurnConversationRunner,
-        score_tool_call_graded,
-        score_multi_turn_workflow,
-        ADVERSARIAL_TESTS,
-        CONTEXT_STRESS_TESTS,
-        generate_agent_metrics_report,
-        TurnResult,
-        MultiTurnResult,
-    )
-    AGENTIC_FRAMEWORK_AVAILABLE = True
-except ImportError:
-    AGENTIC_FRAMEWORK_AVAILABLE = False
+# Shared Ollama client (native tools, seed, warm-up, retries).
+import ollama_client
+from agent_workspace import SAFE_ENV
 
 # ─────────────────────────────────────────────────────────────
 # CONFIG
@@ -86,79 +72,31 @@ def call_model(
     num_ctx: int = DEFAULT_NUM_CTX,
     max_tokens: int = 600,
     think: bool = False,
+    seed: int = 0,
+    keep_alive: str = ollama_client.DEFAULT_KEEP_ALIVE,
 ) -> dict:
-    """
-    Stream a prompt to Ollama, return response text + timing.
-
-    think=False (default): disables thinking/reasoning mode so token budget
-    is not consumed by chain-of-thought before the actual answer appears.
-    Placed in both payload top-level AND inside options because different
-    Ollama builds and model types look in different locations.
-
-    Safety floor: even if think=False is ignored by a model, we request at
-    least 200 tokens so short-answer prompts still get a visible response.
-    """
-    # Ensure short-answer tests can still get a response even if a model
-    # uses some tokens for reasoning before outputting the answer.
-    effective_tokens = max(max_tokens, 200)
-
-    payload = {
-        "model":  model,
-        "prompt": prompt,
-        "system": system,
-        "stream": True,
-        "think":  think,           # top-level key (Ollama ≥ 0.7 / Qwen3 / DeepSeek-R1)
-        "options": {
-            "num_predict": effective_tokens,
-            "temperature": 0.05,   # near-deterministic for reproducibility
-            "top_p":       0.9,
-            "num_ctx":     num_ctx,
-            "think":       think,  # inside options (some Ollama builds read it here)
-        },
-    }
+    """Call the shared client (native tool API, temperature 0.0, bounded retries)."""
     result = {
-        "response": "",   # final answer tokens
-        "thinking": "",   # chain-of-thought tokens (separated by newer Ollama)
-        "ttft": None, "tps": None,
-        "total_time": None, "error": None,
+        "response": "", "thinking": "", "ttft": None, "tps": None,
+        "total_time": None, "error": None, "done_reason": "",
     }
-    start     = time.perf_counter()
-    first_tok = None
-
-    try:
-        with requests.post(
-            f"{host}/api/generate",
-            json=payload, stream=True, timeout=REQUEST_TIMEOUT,
-        ) as resp:
-            resp.raise_for_status()
-            for raw in resp.iter_lines():
-                if not raw:
-                    continue
-                chunk     = json.loads(raw)
-                tok       = chunk.get("response", "")
-                think_tok = chunk.get("thinking", "")   # Ollama thinking field
-
-                result["thinking"] += think_tok
-
-                # Track TTFT from whichever field arrives first
-                if (tok or think_tok) and first_tok is None:
-                    first_tok = time.perf_counter()
-                    result["ttft"] = first_tok - start
-
-                result["response"] += tok
-
-                if chunk.get("done"):
-                    result["total_time"] = time.perf_counter() - start
-                    ev = chunk.get("eval_count", 0)
-                    ed = chunk.get("eval_duration", 0)
-                    if ed > 0:
-                        result["tps"] = ev / (ed / 1_000_000_000)
-                    break
-    except requests.exceptions.Timeout:
-        result["error"] = "timeout"
-    except Exception as e:
-        result["error"] = str(e)
-
+    messages = (
+        [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
+        if system else [{"role": "user", "content": prompt}]
+    )
+    r = ollama_client.call_with_retry(
+        host, model, messages,
+        num_ctx=num_ctx, num_predict=max_tokens,
+        temperature=0.0, seed=seed, think=think, keep_alive=keep_alive,
+    )
+    result["response"] = r.content
+    result["thinking"] = r.thinking
+    result["ttft"] = r.ttft_seconds
+    result["total_time"] = r.wall_seconds
+    result["error"] = r.error
+    result["done_reason"] = r.done_reason
+    if r.wall_seconds > 0:
+        result["tps"] = r.completion_tokens / r.wall_seconds
     return result
 
 
@@ -169,23 +107,33 @@ def call_model(
 def extract_number(text: str) -> Optional[float]:
     """
     Pull the most likely "answer" number out of free-form text.
-    Tries progressively looser patterns.
+    Anchored patterns use their FIRST match (leftmost); the fallback "any
+    number" pattern takes the last number on the last non-empty line, so
+    that scattered digits do not mask the stated answer.
     """
     patterns = [
         # "= 391", "answer: 391", "result is 391", "is 80 km/h"
         r'(?:=|answer\s*:?|result\s*:?|is)\s*([-+]?\d[\d,]*(?:\.\d+)?)',
         # last standalone number in the text (common for short answers)
         r'([-+]?\d[\d,]*(?:\.\d+)?)\s*(?:km/h|mph|%|items?|days?|years?)?\s*$',
-        # any number
-        r'([-+]?\d[\d,]*(?:\.\d+)?)',
     ]
     for pat in patterns:
         hits = re.findall(pat, text.strip(), re.IGNORECASE | re.MULTILINE)
         if hits:
             try:
-                return float(hits[-1].replace(",", ""))
+                return float(hits[0].replace(",", ""))
             except ValueError:
                 continue
+    # fallback: any number, but take the last one on the last non-empty line
+    lines = [ln for ln in text.strip().splitlines() if ln.strip()]
+    if lines:
+        last_line = lines[-1]
+        hits = re.findall(r'([-+]?\d[\d,]*(?:\.\d+)?)', last_line)
+        if hits:
+            try:
+                return float(hits[-1].replace(",", ""))
+            except ValueError:
+                pass
     return None
 
 
@@ -217,6 +165,8 @@ def eval_numeric(response: str, expected: float, tolerance: float = 0.01) -> dic
 
 def eval_exact(response: str, expected: str, case_sensitive: bool = False) -> dict:
     """Pass if expected string appears anywhere in the response."""
+    if not isinstance(response, str) or not isinstance(expected, str):
+        return {"pass": False, "reason": "non-string input to eval_exact"}
     r = response if case_sensitive else response.lower()
     e = expected if case_sensitive else expected.lower()
     ok = e in r
@@ -288,9 +238,10 @@ def eval_code_execution(response: str, function_name: str, test_cases: list) -> 
             proc = subprocess.run(
                 [sys.executable, "-c", script],
                 capture_output=True, text=True, timeout=10,
-                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+                env=dict(SAFE_ENV),
             )
-            actual_str = proc.stdout.strip()
+            stdout_lines = proc.stdout.strip().splitlines()
+            actual_str = stdout_lines[-1] if stdout_lines else ""
             stderr     = proc.stderr.strip()
 
             if proc.returncode != 0:
@@ -298,6 +249,11 @@ def eval_code_execution(response: str, function_name: str, test_cases: list) -> 
                 reason = (stderr.splitlines()[-1] if stderr else "Runtime error")[:120]
             else:
                 expected_repr = repr(expected)
+                # compare against the LAST output line so an earlier debug print
+                # does not false-fail a correct solution.
+                if actual_str.startswith("[") and len(stdout_lines) > 1:
+                    # serialized list may span lines; join them
+                    actual_str = proc.stdout.strip()
                 passed = (actual_str == expected_repr)
                 reason = (
                     f"Got {actual_str!r}, expected {expected_repr!r}"
@@ -392,32 +348,17 @@ def eval_tool_call(
     expected_tool: str,
     expected_args: dict,
     required_args: Optional[list] = None,
-    use_graded_scoring: bool = False,
 ) -> dict:
     """
     Parse JSON tool call from model response, then verify:
       1. Correct tool name
       2. All required argument keys present
-      3. Each expected_args value appears in the actual value (substring check)
-    
-    If use_graded_scoring=True, uses the advanced graded scoring system from
-    benchmark_agentic that provides detailed breakdown and partial credit.
+      3. Each expected_args value is contained in the actual value
+         (substring, lower/whitespace-normalised, one direction only).
+
+    A wrong tool name is a hard fail — there is no partial credit for
+    'nearly the right' call, because in a harness a wrong call is ignored.
     """
-    if use_graded_scoring and AGENTIC_FRAMEWORK_AVAILABLE:
-        parsed = parse_json_from_text(response)
-        graded_result = score_tool_call_graded(
-            parsed, expected_tool, expected_args, required_args
-        )
-        # Convert graded result to legacy format for backward compatibility
-        return {
-            "pass": graded_result["score"] >= 0.7,  # Threshold for "pass"
-            "score": graded_result["score"],
-            "reason": "; ".join(graded_result.get("issues", [])) or "OK",
-            "parsed": parsed,
-            "breakdown": graded_result.get("breakdown"),
-        }
-    
-    # Legacy binary evaluation
     parsed = parse_json_from_text(response)
     if parsed is None:
         return {"pass": False, "reason": "No valid JSON object found in response", "parsed": None}
@@ -435,7 +376,7 @@ def eval_tool_call(
     if tool_name != expected_tool:
         return {
             "pass":   False,
-            "reason": f"Wro ng tool: expected '{expected_tool}', got '{tool_name}'",
+            "reason": f"Wrong tool: expected '{expected_tool}', got '{tool_name}'",
             "parsed": parsed,
         }
 
@@ -451,10 +392,14 @@ def eval_tool_call(
             }
 
     for key, exp_val in expected_args.items():
-        got_val = str(args.get(key, "")).lower()
-        chk_val = str(exp_val).lower()
-        # Accept if expected value is a substring of actual (handles path variations)
-        if chk_val not in got_val and got_val not in chk_val:
+        got = str(args.get(key, "")).lower()
+        exp = str(exp_val).lower()
+        # collapse whitespace so "quantum  computing" == "quantum computing"
+        got = " ".join(got.split())
+        exp = " ".join(exp.split())
+        # one direction only: expected contained in actual. The reverse
+        # ('got in exp') is the false-pass that let 'q' pass for 'quantum'.
+        if got != exp and exp not in got:
             return {
                 "pass":   False,
                 "reason": f"Arg '{key}': expected value containing '{exp_val}', got '{args.get(key)}'",
@@ -556,401 +501,6 @@ def evaluate(response: str, test: dict) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
-# BUILT-IN TEST SUITE
-# ─────────────────────────────────────────────────────────────
-# Export with: python benchmark_quality.py --save-suite
-# Each test: id, name, category, eval_type, prompt, [system], + eval-specific fields
-# ─────────────────────────────────────────────────────────────
-
-_TOOL_SYSTEM = (
-    "You are an AI agent. When you decide to call a tool, output ONLY a single JSON object "
-    "with no other text before or after it, in this exact format: "
-    '{"tool": "<tool_name>", "args": {<key>: <value>, ...}}. '
-    "Available tools: "
-    "read_file(path: str), "
-    "web_search(query: str), "
-    "send_email(to: str, subject: str, body: str), "
-    "execute_python(code: str), "
-    "query_database(sql: str, db: str)."
-)
-
-DEFAULT_SUITE: dict = {
-    "version":     "1.1",
-    "description": "Quality benchmark suite for Ollama models — correctness focused",
-    "tests": [
-
-        # ── REASONING ──────────────────────────────────────────────────────
-
-        {
-            "id": "r01", "name": "arithmetic_basic",
-            "category": "reasoning", "eval_type": "numeric",
-            "difficulty": "easy",
-            "prompt": "Calculate: 17 × 23. Reply with the number only, no explanation.",
-            "expected_number": 391, "tolerance": 0.001,
-            "max_tokens": 15,
-        },
-        {
-            "id": "r02", "name": "speed_calculation",
-            "category": "reasoning", "eval_type": "numeric",
-            "difficulty": "easy",
-            "prompt": (
-                "A car travels 240 km in 3 hours. "
-                "What is its average speed in km/h? Answer with the number only."
-            ),
-            "expected_number": 80, "tolerance": 0.01,
-            "max_tokens": 20,
-        },
-        {
-            "id": "r03", "name": "multi_step_inventory",
-            "category": "reasoning", "eval_type": "numeric",
-            "difficulty": "medium",
-            "prompt": (
-                "A store starts with 150 items. It sells 30% on Monday, "
-                "then sells 20% of the remaining items on Tuesday. "
-                "How many items are left after Tuesday? Show your working, then state the final number."
-            ),
-            "expected_number": 84, "tolerance": 0.01,
-            "max_tokens": 250,
-        },
-        {
-            "id": "r04", "name": "compound_interest",
-            "category": "reasoning", "eval_type": "numeric",
-            "difficulty": "hard",
-            "prompt": (
-                "£1000 is invested at 5% annual compound interest. "
-                "What is the total value after 3 years? Round to 2 decimal places. "
-                "Answer with the number only."
-            ),
-            "expected_number": 1157.63, "tolerance": 0.005,
-            "max_tokens": 30,
-        },
-        {
-            "id": "r05", "name": "percentage_of_number",
-            "category": "reasoning", "eval_type": "numeric",
-            "difficulty": "easy",
-            "prompt": "What is 15% of 240? Answer with the number only.",
-            "expected_number": 36, "tolerance": 0.001,
-            "max_tokens": 10,
-        },
-        {
-            "id": "r06", "name": "logic_puzzle_pets",
-            "category": "reasoning", "eval_type": "contains_all",
-            "difficulty": "medium",
-            "prompt": (
-                "Alice, Bob, and Carol each own exactly one pet: a cat, a dog, or a fish.\n"
-                "Clues:\n"
-                "1. Alice does NOT have the cat.\n"
-                "2. Bob does NOT have the fish.\n"
-                "3. Carol does NOT have the dog.\n"
-                "Reason through this step by step, then state who has which pet."
-            ),
-            "required_facts": ["alice", "dog", "bob", "cat", "carol", "fish"],
-            "max_tokens": 350,
-        },
-        {
-            "id": "r07", "name": "next_prime",
-            "category": "reasoning", "eval_type": "numeric",
-            "difficulty": "easy",
-            "prompt": "What is the smallest prime number greater than 47? Answer with the number only.",
-            "expected_number": 53, "tolerance": 0.001,
-            "max_tokens": 10,
-        },
-
-        # ── CODING ─────────────────────────────────────────────────────────
-
-        {
-            "id": "c01", "name": "fibonacci",
-            "category": "coding", "eval_type": "code_execution",
-            "difficulty": "easy",
-            "prompt": (
-                "Write a Python function `fibonacci(n: int) -> int` that returns the nth Fibonacci number "
-                "(0-indexed: fibonacci(0)=0, fibonacci(1)=1, fibonacci(2)=1, fibonacci(7)=13). "
-                "Output only the function definition, no tests, no main block."
-            ),
-            "function_name": "fibonacci",
-            "test_cases": [
-                {"call": "fibonacci(0)",  "expected": 0},
-                {"call": "fibonacci(1)",  "expected": 1},
-                {"call": "fibonacci(2)",  "expected": 1},
-                {"call": "fibonacci(7)",  "expected": 13},
-                {"call": "fibonacci(10)", "expected": 55},
-            ],
-            "max_tokens": 300,
-        },
-        {
-            "id": "c02", "name": "palindrome_check",
-            "category": "coding", "eval_type": "code_execution",
-            "difficulty": "easy",
-            "prompt": (
-                "Write a Python function `is_palindrome(s: str) -> bool` that returns True if "
-                "the string is a palindrome (ignore case, ignore spaces). "
-                "Output only the function definition."
-            ),
-            "function_name": "is_palindrome",
-            "test_cases": [
-                {"call": "is_palindrome('racecar')",                        "expected": True},
-                {"call": "is_palindrome('hello')",                          "expected": False},
-                {"call": "is_palindrome('A man a plan a canal Panama')",    "expected": True},
-                {"call": "is_palindrome('')",                               "expected": True},
-                {"call": "is_palindrome('No lemon no melon')",              "expected": True},
-            ],
-            "max_tokens": 250,
-        },
-        {
-            "id": "c03", "name": "find_duplicates",
-            "category": "coding", "eval_type": "code_execution",
-            "difficulty": "medium",
-            "prompt": (
-                "Write a Python function `find_duplicates(lst: list) -> list` that returns a "
-                "sorted list of values that appear more than once in lst. "
-                "Output only the function definition."
-            ),
-            "function_name": "find_duplicates",
-            "test_cases": [
-                {"call": "find_duplicates([1, 2, 3, 2, 4, 3])", "expected": [2, 3]},
-                {"call": "find_duplicates([1, 2, 3])",           "expected": []},
-                {"call": "find_duplicates([])",                  "expected": []},
-                {"call": "find_duplicates([5, 5, 5])",           "expected": [5]},
-            ],
-            "max_tokens": 300,
-        },
-        {
-            "id": "c04", "name": "flatten_nested_list",
-            "category": "coding", "eval_type": "code_execution",
-            "difficulty": "medium",
-            "prompt": (
-                "Write a Python function `flatten(lst: list) -> list` that recursively "
-                "flattens a nested list of arbitrary depth into a single flat list. "
-                "Output only the function definition."
-            ),
-            "function_name": "flatten",
-            "test_cases": [
-                {"call": "flatten([1, [2, 3], [4, [5, 6]]])", "expected": [1, 2, 3, 4, 5, 6]},
-                {"call": "flatten([])",                        "expected": []},
-                {"call": "flatten([[1], [2], [3]])",           "expected": [1, 2, 3]},
-                {"call": "flatten([1, [2, [3, [4]]]])",        "expected": [1, 2, 3, 4]},
-            ],
-            "max_tokens": 250,
-        },
-        {
-            "id": "c05", "name": "binary_search",
-            "category": "coding", "eval_type": "code_execution",
-            "difficulty": "medium",
-            "prompt": (
-                "Write a Python function `binary_search(arr: list, target: int) -> int` "
-                "that returns the index of target in the sorted array arr, or -1 if not found. "
-                "Output only the function definition."
-            ),
-            "function_name": "binary_search",
-            "test_cases": [
-                {"call": "binary_search([1, 3, 5, 7, 9, 11], 7)",  "expected": 3},
-                {"call": "binary_search([1, 3, 5, 7, 9, 11], 4)",  "expected": -1},
-                {"call": "binary_search([], 5)",                    "expected": -1},
-                {"call": "binary_search([42], 42)",                 "expected": 0},
-            ],
-            "max_tokens": 300,
-        },
-        {
-            "id": "c06", "name": "most_frequent_element",
-            "category": "coding", "eval_type": "code_execution",
-            "difficulty": "easy",
-            "prompt": (
-                "Write a Python function `most_frequent(lst: list)` that returns the element "
-                "appearing most often. On a tie, return the smallest value. "
-                "Output only the function definition."
-            ),
-            "function_name": "most_frequent",
-            "test_cases": [
-                {"call": "most_frequent([1, 2, 2, 3, 3, 3])", "expected": 3},
-                {"call": "most_frequent([4, 4, 5, 5])",        "expected": 4},
-                {"call": "most_frequent([7])",                  "expected": 7},
-                {"call": "most_frequent(['a', 'b', 'a'])",     "expected": 'a'},
-            ],
-            "max_tokens": 300,
-        },
-        {
-            "id": "c07", "name": "two_sum",
-            "category": "coding", "eval_type": "code_execution",
-            "difficulty": "medium",
-            "prompt": (
-                "Write a Python function `two_sum(nums: list, target: int) -> list` that returns "
-                "the indices [i, j] of two numbers in nums that add up to target (i < j). "
-                "Assume exactly one solution exists. Output only the function definition."
-            ),
-            "function_name": "two_sum",
-            "test_cases": [
-                {"call": "two_sum([2, 7, 11, 15], 9)",  "expected": [0, 1]},
-                {"call": "two_sum([3, 2, 4], 6)",        "expected": [1, 2]},
-                # target=12: only pair is nums[1]+nums[3]=5+7=12; both hashmap and
-                # brute-force return [1,3]. (original target=8 was wrong: 5+7=12≠8,
-                # and target=8 had two valid pairs [0,3] and [1,2] causing ambiguity)
-                {"call": "two_sum([1, 5, 3, 7], 12)",    "expected": [1, 3]},
-            ],
-            "max_tokens": 350,
-        },
-
-        # ── AGENTIC / TOOL CALL ────────────────────────────────────────────
-
-        {
-            "id": "a01", "name": "tool_read_file",
-            "category": "agentic", "eval_type": "tool_call",
-            "difficulty": "easy",
-            "system": _TOOL_SYSTEM,
-            "prompt": "The user says: 'Please read the file at /data/sales_2024.csv'",
-            "expected_tool": "read_file",
-            "expected_args": {"path": "/data/sales_2024.csv"},
-            "required_args": ["path"],
-            "max_tokens": 80,
-        },
-        {
-            "id": "a02", "name": "tool_web_search",
-            "category": "agentic", "eval_type": "tool_call",
-            "difficulty": "easy",
-            "system": _TOOL_SYSTEM,
-            "prompt": "The user asks: 'What is the current price of gold per ounce?'",
-            "expected_tool": "web_search",
-            "expected_args": {},
-            "required_args": ["query"],
-            "max_tokens": 80,
-        },
-        {
-            "id": "a03", "name": "tool_send_email",
-            "category": "agentic", "eval_type": "tool_call",
-            "difficulty": "medium",
-            "system": _TOOL_SYSTEM,
-            "prompt": (
-                "Send an email to cfo@company.com with subject 'Q3 Report Ready' "
-                "and body 'The Q3 financial report is now available for review.'"
-            ),
-            "expected_tool": "send_email",
-            "expected_args": {"to": "cfo@company.com"},
-            "required_args": ["to", "subject", "body"],
-            "max_tokens": 150,
-        },
-        {
-            "id": "a04", "name": "tool_execute_python",
-            "category": "agentic", "eval_type": "tool_call",
-            "difficulty": "easy",
-            "system": _TOOL_SYSTEM,
-            "prompt": "Execute this Python snippet on the server: `print(sum(range(1, 101)))`",
-            "expected_tool": "execute_python",
-            "expected_args": {},
-            "required_args": ["code"],
-            "max_tokens": 100,
-        },
-        {
-            "id": "a05", "name": "tool_query_database",
-            "category": "agentic", "eval_type": "tool_call",
-            "difficulty": "medium",
-            "system": _TOOL_SYSTEM,
-            "prompt": (
-                "Query the 'sales_db' database: get all order records from 2024 "
-                "where the total amount exceeds 1000."
-            ),
-            "expected_tool": "query_database",
-            "expected_args": {},
-            "required_args": ["sql", "db"],
-            "max_tokens": 150,
-        },
-        {
-            "id": "a06", "name": "tool_correct_choice_file_vs_search",
-            "category": "agentic", "eval_type": "tool_call",
-            "difficulty": "hard",
-            "system": _TOOL_SYSTEM,
-            "prompt": (
-                "The user says: 'I need the annual report that's saved on disk at "
-                "/reports/annual_2024.pdf — can you open it?' What is your first action?"
-            ),
-            "expected_tool": "read_file",
-            "expected_args": {"path": "/reports/annual_2024.pdf"},
-            "required_args": ["path"],
-            "max_tokens": 100,
-        },
-        {
-            "id": "a07", "name": "tool_no_hallucinate_unknown",
-            "category": "agentic", "eval_type": "tool_call",
-            "difficulty": "hard",
-            "system": _TOOL_SYSTEM,
-            "prompt": (
-                "Calculate the square root of 144 without using any external resource. "
-                "The result is a number you can compute yourself."
-            ),
-            "expected_tool": "execute_python",
-            "expected_args": {},
-            "required_args": ["code"],
-            "max_tokens": 150,
-        },
-
-        # ── SUMMARIZATION ──────────────────────────────────────────────────
-
-        {
-            "id": "s01", "name": "extract_key_facts",
-            "category": "summarization", "eval_type": "contains_all",
-            "difficulty": "easy",
-            "prompt": (
-                "Read this and list exactly 4 key facts as a numbered list (1. 2. 3. 4.):\n\n"
-                "Python was created by Guido van Rossum and first released in 1991. "
-                "It emphasizes code readability through significant indentation. "
-                "Python is dynamically typed and garbage-collected. "
-                "It supports procedural, object-oriented, and functional programming paradigms. "
-                "Python consistently ranks among the world's most popular programming languages."
-            ),
-            "required_facts": ["guido", "1991", "indentation", "dynamically"],
-            "max_tokens": 300,
-        },
-        {
-            "id": "s02", "name": "bullet_point_format",
-            "category": "summarization", "eval_type": "contains_all",
-            "difficulty": "easy",
-            "prompt": (
-                "Summarize the following in exactly 3 bullet points starting with '•':\n\n"
-                "The Amazon rainforest covers over 5.5 million km² across nine countries. "
-                "It is home to 10% of all species on Earth and produces about 20% of the world's oxygen. "
-                "Deforestation has destroyed roughly 17% of the Amazon over the past 50 years, "
-                "driven mainly by cattle ranching and agriculture."
-            ),
-            "required_facts": ["•", "5.5", "17"],
-            "max_tokens": 200,
-        },
-        {
-            "id": "s03", "name": "rest_api_summary",
-            "category": "summarization", "eval_type": "contains_all",
-            "difficulty": "medium",
-            "prompt": (
-                "In exactly 2 sentences, summarize what a REST API is. "
-                "Mention at least two HTTP methods it uses. Be precise and concise."
-            ),
-            "required_facts": ["stateless", "http", "get", "post"],
-            "max_tokens": 150,
-        },
-        {
-            "id": "s04", "name": "strict_instruction_following",
-            "category": "summarization", "eval_type": "regex",
-            "difficulty": "easy",
-            "prompt": "Reply with ONLY the capital city of France. One word, nothing else.",
-            "pattern": r"(?i)^\s*paris[.!]?\s*$",
-            "max_tokens": 10,
-        },
-        {
-            "id": "s05", "name": "selective_extraction",
-            "category": "summarization", "eval_type": "contains_all",
-            "difficulty": "medium",
-            "prompt": (
-                "From the text below, extract ONLY the names of the three scientists mentioned "
-                "and list them as 1. 2. 3. with nothing else:\n\n"
-                "The theory of relativity was developed by Albert Einstein in the early 20th century. "
-                "Marie Curie pioneered research on radioactivity and won two Nobel Prizes. "
-                "Isaac Newton laid the foundations of classical mechanics with his laws of motion. "
-                "Their contributions fundamentally shaped modern physics and chemistry."
-            ),
-            "required_facts": ["Einstein", "Curie", "Newton"],
-            "max_tokens": 80,
-        },
-    ],
-}
-
-
-# ─────────────────────────────────────────────────────────────
 # CLASSIFICATION
 # ─────────────────────────────────────────────────────────────
 
@@ -980,20 +530,34 @@ def run_benchmark(
     tests: list[dict],
     num_ctx: int,
     think: bool = False,
+    seed: int = 42,
+    keep_alive: str = ollama_client.DEFAULT_KEEP_ALIVE,
 ) -> dict:
     all_results = {}
     total = len(models) * len(tests)
     idx   = 0
 
-    think_label = "ON (chain-of-thought enabled)" if think else "OFF (direct answer mode)"
+    think_label = "ON (capability-gated)" if think else "OFF (direct answer mode)"
     print(f"\n{'='*72}")
     print(f"  Quality Benchmark  |  {len(models)} model(s)  |  {len(tests)} tests")
-    print(f"  num_ctx = {num_ctx}  |  thinking = {think_label}")
+    print(f"  num_ctx = {num_ctx}  |  thinking = {think_label}  |  seed = {seed}")
     print(f"  Server: {host}")
     print(f"{'='*72}")
 
     for model in models:
         print(f"\n📦  {model}")
+        # warm up once so the first real test isn't dominated by load time
+        ollama_client.warmup(host, model)
+        if think:
+            try:
+                prof = ollama_client.probe_model(host, model)
+                model_think = "thinking" in (prof.capabilities or [])
+            except Exception:
+                model_think = False
+            if not model_think:
+                print(f"    (thinking requested but unsupported → sending think=False)")
+        else:
+            model_think = False
         all_results[model] = {"tests": [], "categories": {}, "overall": {}}
 
         for test in tests:
@@ -1011,7 +575,9 @@ def run_benchmark(
                 system    = test.get("system", ""),
                 num_ctx   = num_ctx,
                 max_tokens= test.get("max_tokens", 600),
-                think     = think,
+                think     = model_think,
+                seed      = seed,
+                keep_alive= keep_alive,
             )
 
             if resp["error"]:
@@ -1019,10 +585,19 @@ def run_benchmark(
                       "score": 0.0}
                 print(f"  ❌  {resp['error'][:60]}")
             else:
-                # Use the final-answer field if non-empty; fall back to thinking
-                # content for models where think=False was ignored (older Ollama).
-                eval_text = resp["response"] or resp.get("thinking", "")
-                ev   = evaluate(eval_text, test)
+                eval_text = resp["response"]
+                if not eval_text and resp.get("thinking"):
+                    # model hid its answer in thinking only → extraction failure
+                    ev = {"pass": False,
+                          "reason": "answer only in thinking field (extraction failed)",
+                          "score": 0.0}
+                else:
+                    ev = evaluate(eval_text, test)
+                if ev["pass"] and resp.get("done_reason") in ("length", "max_tokens"):
+                    # passed but was cut off at num_predict → not trustworthy
+                    ev = {"pass": False,
+                          "reason": "truncated at num_predict (pass reset to fail)",
+                          "score": 0.0}
                 icon = "✅" if ev["pass"] else "❌"
                 tps  = f"{resp['tps']:.1f}t/s" if resp["tps"] else "N/A   "
                 reason = ev.get("reason", "")[:55]
@@ -1042,6 +617,8 @@ def run_benchmark(
                 "response":    resp["response"][:800],
                 "tps":         resp["tps"],
                 "ttft":        resp["ttft"],
+                "done_reason": resp.get("done_reason"),
+                "thinking":    bool(think) and bool(resp.get("thinking")),
             })
 
         # ── Aggregate by category ──
@@ -1407,40 +984,28 @@ def main():
                         dest="num_ctx",
                         help=f"Context window tokens passed to Ollama (default: {DEFAULT_NUM_CTX}). "
                              "Try 2048/4096/8192/16384 to test context sensitivity.")
-    parser.add_argument("--suite",      default=None, metavar="PATH",
-                        help="Path to a custom test suite JSON file")
+    parser.add_argument("--suite",      default="test_suite_v3.json",
+                        metavar="PATH",
+                        help="Path to a test suite JSON file (default: test_suite_v3.json, the 110-test suite)")
     parser.add_argument("--quick",      action="store_true",
                         help="Quick mode: run only 2 tests per category (~8 tests total)")
+    parser.add_argument("--seed",       type=int, default=42, metavar="N",
+                        help="Sampling seed for reproducibility (default: 42)")
     parser.add_argument("--output-dir", default=".", metavar="DIR",
                         help="Directory for output files (default: current dir)")
-    parser.add_argument("--save-suite", action="store_true",
-                        help="Export the built-in test suite to test_suite.json and exit")
     parser.add_argument("--list",       action="store_true",
                         help="List available models on the server and exit")
     parser.add_argument("--think",      action="store_true", default=False,
-                        help="Enable thinking/chain-of-thought mode (default: OFF). "
-                             "OFF is recommended for benchmarking: faster, no token budget "
-                             "wasted on reasoning, results are comparable across models.")
+                        help="Enable thinking mode only for models that support it "
+                             "(capability-checked; disabled for those that would 400).")
     args = parser.parse_args()
 
-    # ── Export test suite ──
-    if args.save_suite:
-        os.makedirs(args.output_dir, exist_ok=True)
-        out = Path(args.output_dir) / "test_suite.json"
-        with open(out, "w", encoding="utf-8") as f:
-            json.dump(DEFAULT_SUITE, f, indent=2)
-        print(f"✅  Test suite written to: {out}")
-        print(f"    Edit it freely, then run: python benchmark_quality.py --suite {out}")
-        return
-
     # ── Load tests ──
-    if args.suite:
-        with open(args.suite, encoding="utf-8") as f:
-            suite = json.load(f)
-        tests = suite["tests"]
-        print(f"📋  Loaded {len(tests)} tests from {args.suite}")
-    else:
-        tests = DEFAULT_SUITE["tests"]
+    suite_path = args.suite
+    with open(suite_path, encoding="utf-8") as f:
+        suite = json.load(f)
+    tests = suite["tests"]
+    print(f"📋  Loaded {len(tests)} tests from {suite_path}")
 
     if args.categories:
         tests = [t for t in tests if t.get("category") in args.categories]
@@ -1486,7 +1051,8 @@ def main():
     categories = list(dict.fromkeys(t.get("category", "other") for t in tests))
 
     # ── Run ──
-    results = run_benchmark(args.host, models, tests, args.num_ctx, think=args.think)
+    results = run_benchmark(args.host, models, tests, args.num_ctx,
+                            think=args.think, seed=args.seed)
 
     # ── Save ──
     os.makedirs(args.output_dir, exist_ok=True)

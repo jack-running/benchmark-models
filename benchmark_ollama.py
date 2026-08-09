@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Ollama Model Benchmark Suite
+Ollama Model Speed Benchmark
 =============================
-Tests all models on: Reasoning, Document Summarization, Coding, Agentic tasks.
-Measures: Time-to-First-Token (TTFT), Tokens/sec (TPS), Quality Score (0-100).
+Measures: Time-to-First-Token (TTFT), Tokens/sec (TPS), and end-to-end latency.
+Heuristic quality scoring was REMOVED — correctness is assessed by
+benchmark_quality.py (correctness) and benchmark_agent.py (agentic harness).
 
 Usage:
   python benchmark_ollama.py                         # Benchmark all models
@@ -37,7 +38,7 @@ SKIP_MODELS = {
 
 # ─────────────────────────────────────────────────────────────
 # BENCHMARK PROMPTS
-# Each entry: name, prompt, max_tokens, check_keywords (for scoring)
+# Each entry: name, prompt, max_tokens
 # ─────────────────────────────────────────────────────────────
 BENCHMARKS = {
     "reasoning": [
@@ -50,7 +51,6 @@ BENCHMARKS = {
                 "Who has which pet? Show your full reasoning before giving the final answer."
             ),
             "max_tokens": 350,
-            "check_keywords": ["alice", "dog", "bob", "cat", "carol", "fish"],
         },
         {
             "name": "math_word_problem",
@@ -61,7 +61,6 @@ BENCHMARKS = {
                 "entire journey including the stop? Give the answer in km/h."
             ),
             "max_tokens": 350,
-            "check_keywords": ["km/h", "200", "3", "average"],
         },
         {
             "name": "syllogism",
@@ -74,7 +73,6 @@ BENCHMARKS = {
                 "Explain each conclusion and why."
             ),
             "max_tokens": 300,
-            "check_keywords": ["definitely", "cannot", "conclude", "blip"],
         },
     ],
     "summarization": [
@@ -94,7 +92,6 @@ BENCHMARKS = {
                 "modern capitalism and the global trade networks that persist today."
             ),
             "max_tokens": 200,
-            "check_keywords": ["•"],
         },
         {
             "name": "technical_summary",
@@ -104,7 +101,6 @@ BENCHMARKS = {
                 "Be precise and avoid unnecessary padding."
             ),
             "max_tokens": 180,
-            "check_keywords": ["attention", "transformer", "token"],
         },
         {
             "name": "extract_key_facts",
@@ -119,7 +115,6 @@ BENCHMARKS = {
                 "molecular structures, but practical general-purpose quantum computers remain years away."
             ),
             "max_tokens": 200,
-            "check_keywords": ["1.", "2.", "3.", "4.", "qubit"],
         },
     ],
     "coding": [
@@ -132,7 +127,6 @@ BENCHMARKS = {
                 "and add 3 example assertions at the bottom demonstrating correctness."
             ),
             "max_tokens": 400,
-            "check_keywords": ["def find_duplicates", "docstring", "return", "assert"],
         },
         {
             "name": "debug_code",
@@ -150,7 +144,6 @@ BENCHMARKS = {
                 "```"
             ),
             "max_tokens": 400,
-            "check_keywords": ["=+", "ZeroDivision", "fix", "def calculate_stats"],
         },
         {
             "name": "sql_query",
@@ -161,7 +154,6 @@ BENCHMARKS = {
                 "Show customer_id, total_amount, and order_count. Sort descending by total_amount."
             ),
             "max_tokens": 200,
-            "check_keywords": ["SELECT", "GROUP BY", "ORDER BY", "LIMIT", "SUM"],
         },
         {
             "name": "code_review",
@@ -180,7 +172,6 @@ BENCHMARKS = {
                 "List each issue with severity (HIGH/MEDIUM/LOW) and how to fix it."
             ),
             "max_tokens": 400,
-            "check_keywords": ["sql injection", "pickle", "HIGH", "fix"],
         },
     ],
     "agentic": [
@@ -194,7 +185,6 @@ BENCHMARKS = {
                 "For each step, name the tool/action used."
             ),
             "max_tokens": 350,
-            "check_keywords": ["1.", "2.", "3.", "4.", "5.", "6.", "tool"],
         },
         {
             "name": "tool_selection",
@@ -206,7 +196,6 @@ BENCHMARKS = {
                 "List the exact tool calls in order with arguments. Be specific."
             ),
             "max_tokens": 350,
-            "check_keywords": ["read_file", "execute_python", "send_email", "query"],
         },
         {
             "name": "error_handling",
@@ -217,7 +206,6 @@ BENCHMARKS = {
                 "without losing data or failing the user's task. Number each strategy (1-4) and be specific."
             ),
             "max_tokens": 350,
-            "check_keywords": ["1.", "2.", "3.", "4.", "retry", "queue"],
         },
         {
             "name": "context_following",
@@ -232,7 +220,6 @@ BENCHMARKS = {
                 "What do you do? Walk through your decision process step by step."
             ),
             "max_tokens": 350,
-            "check_keywords": ["PII", "flag", "skip", "log", "audit"],
         },
     ],
 }
@@ -255,15 +242,13 @@ def get_models(host: str) -> list[str]:
 
 
 def run_prompt(host: str, model: str, prompt: str, max_tokens: int = 300) -> dict:
-    """Stream a prompt and collect timing metrics."""
+    """Stream a prompt and collect timing metrics only (speed benchmark)."""
     payload = {
         "model": model,
         "prompt": prompt,
         "stream": True,
         "options": {
             "num_predict": max_tokens,
-            "temperature": 0.1,   # Low temp for reproducible quality scoring
-            "top_p": 0.9,
         },
     }
 
@@ -321,103 +306,25 @@ def run_prompt(host: str, model: str, prompt: str, max_tokens: int = 300) -> dic
 
 
 # ─────────────────────────────────────────────────────────────
-# QUALITY SCORING
+# CLASSIFICATION (TPS-ONLY)
+# Heuristic quality scoring was removed: content correctness is the
+# job of benchmark_quality.py / benchmark_agent.py, not of a speed
+# harness. This script reports throughput and latency, period.
 # ─────────────────────────────────────────────────────────────
 
-def score_quality(response: str, check_keywords: list[str], category: str, test_name: str) -> float:
-    """
-    Score response quality 0-100 using heuristics.
-
-    Scoring breakdown:
-    - 30 pts: Base for providing a non-empty response
-    - 30 pts: Keyword presence (split across keywords)
-    - 20 pts: Response length appropriateness
-    - 20 pts: Category-specific structure checks
-    """
-    if not response or len(response.strip()) < 15:
-        return 0.0
-
-    score = 30.0  # Base for responding
-    resp_lower = response.lower()
-
-    # ── Keyword score (up to 30 pts) ──
-    if check_keywords:
-        matched = sum(1 for kw in check_keywords if kw.lower() in resp_lower)
-        score += (matched / len(check_keywords)) * 30
-    else:
-        score += 15  # No keywords to check = neutral
-
-    # ── Length score (up to 20 pts) ──
-    length = len(response.strip())
-    if length < 30:
-        score += 0
-    elif length < 100:
-        score += 5
-    elif length < 300:
-        score += 12
-    elif length < 800:
-        score += 20
-    elif length < 1600:
-        score += 15
-    else:
-        score += 8  # Overly verbose
-
-    # ── Category-specific structure (up to 20 pts) ──
-    if category == "coding":
-        if "```" in response or "```python" in response:
-            score += 8
-        if "def " in response or "function" in resp_lower:
-            score += 6
-        if "#" in response or "comment" in resp_lower:
-            score += 3
-        if "error" in resp_lower or "fix" in resp_lower or "bug" in resp_lower:
-            score += 3
-
-    elif category == "reasoning":
-        if any(w in resp_lower for w in ["therefore", "because", "step", "thus", "conclude"]):
-            score += 8
-        if any(c in response for c in ["1.", "2.", "Step 1", "First,"]):
-            score += 6
-        # Check for numeric answer in math problems
-        if test_name == "math_word_problem" and any(c.isdigit() for c in response):
-            score += 6
-
-    elif category == "summarization":
-        if "•" in response or response.count("-") >= 3 or response.count("*") >= 3:
-            score += 8
-        if any(c in response for c in ["1.", "2.", "3."]):
-            score += 6
-        # Penalize if response is longer than original (not a summary)
-        if length > 600:
-            score -= 5
-
-    elif category == "agentic":
-        # Count numbered steps present
-        steps = sum(1 for i in range(1, 8) if f"{i}." in response)
-        score += min(steps * 3, 12)
-        if any(w in resp_lower for w in ["tool", "action", "step", "execute", "call"]):
-            score += 8
-
-    return min(round(score, 1), 100.0)
-
-
-# ─────────────────────────────────────────────────────────────
-# CLASSIFICATION
-# ─────────────────────────────────────────────────────────────
-
-TIER_THRESHOLDS = [
-    # (min_quality, min_tps, tier_label, tier_short)
-    (82, 18, "🟢 EXCELLENT",  "EXCELLENT"),
-    (70, 10, "🔵 GOOD",       "GOOD"),
-    (55,  5, "🟡 ADEQUATE",   "ADEQUATE"),
-    (40,  0, "🟠 MARGINAL",   "MARGINAL"),
-    ( 0,  0, "🔴 POOR",       "POOR"),
+TPS_TIER_THRESHOLDS = [
+    # (min_tps, tier_label, tier_short)
+    (30, "🟢 EXCELLENT",  "EXCELLENT"),
+    (15, "🔵 GOOD",       "GOOD"),
+    ( 8, "🟡 ADEQUATE",   "ADEQUATE"),
+    ( 3, "🟠 MARGINAL",   "MARGINAL"),
+    ( 0, "🔴 POOR",       "POOR"),
 ]
 
-def classify_tier(quality: float, tps: float) -> tuple[str, str]:
-    """Return (emoji_label, short_label) based on quality and TPS."""
-    for min_q, min_t, label, short in TIER_THRESHOLDS:
-        if quality >= min_q and tps >= min_t:
+def classify_tier(tps: float) -> tuple[str, str]:
+    """Return (emoji_label, short_label) based on throughput (TPS) only."""
+    for min_t, label, short in TPS_TIER_THRESHOLDS:
+        if tps >= min_t:
             return label, short
     return "🔴 POOR", "POOR"
 
@@ -451,18 +358,11 @@ def run_benchmark(host: str, models: list[str], benchmark_config: dict) -> dict:
                 result = run_prompt(host, model, test["prompt"], test.get("max_tokens", 300))
 
                 if result["error"]:
-                    quality = 0.0
                     print(f"  ❌ {result['error']}")
                 else:
-                    quality = score_quality(
-                        result["response"],
-                        test.get("check_keywords", []),
-                        category,
-                        test["name"],
-                    )
                     tps_s  = f"{result['tps']:.1f} tok/s" if result["tps"] else "N/A     "
                     ttft_s = f"TTFT:{result['ttft']:.2f}s" if result["ttft"] else "TTFT:N/A"
-                    print(f"  ✅ {tps_s} | {ttft_s} | Q:{quality:.0f}/100")
+                    print(f"  ✅ {tps_s} | {ttft_s}")
 
                 cat_data.append({
                     "test":            test["name"],
@@ -470,7 +370,6 @@ def run_benchmark(host: str, models: list[str], benchmark_config: dict) -> dict:
                     "ttft":            result["ttft"],
                     "total_time":      result["total_time"],
                     "tokens":          result["tokens_generated"],
-                    "quality_score":   quality,
                     "response_length": len(result["response"]),
                     "error":           result["error"],
                 })
@@ -478,13 +377,11 @@ def run_benchmark(host: str, models: list[str], benchmark_config: dict) -> dict:
             valid = [r for r in cat_data if r["error"] is None]
             tps_vals   = [r["tps"]  for r in valid if r["tps"]]
             ttft_vals  = [r["ttft"] for r in valid if r["ttft"]]
-            qual_vals  = [r["quality_score"] for r in valid]
 
             all_results[model]["categories"][category] = {
                 "tests":        cat_data,
                 "avg_tps":      statistics.mean(tps_vals)  if tps_vals  else 0.0,
                 "avg_ttft":     statistics.mean(ttft_vals) if ttft_vals else 0.0,
-                "avg_quality":  statistics.mean(qual_vals) if qual_vals else 0.0,
                 "success_rate": len(valid) / len(cat_data) * 100 if cat_data else 0,
             }
 
@@ -492,16 +389,13 @@ def run_benchmark(host: str, models: list[str], benchmark_config: dict) -> dict:
         cats       = all_results[model]["categories"]
         all_tps    = [c["avg_tps"]    for c in cats.values() if c["avg_tps"]]
         all_ttft   = [c["avg_ttft"]   for c in cats.values() if c["avg_ttft"]]
-        all_qual   = [c["avg_quality"] for c in cats.values()]
 
-        avg_quality = statistics.mean(all_qual) if all_qual else 0.0
         avg_tps     = statistics.mean(all_tps)  if all_tps  else 0.0
-        tier, _     = classify_tier(avg_quality, avg_tps)
+        tier, _     = classify_tier(avg_tps)
 
         all_results[model]["overall"] = {
             "avg_tps":      round(avg_tps, 2),
             "avg_ttft":     round(statistics.mean(all_ttft), 3) if all_ttft else 0.0,
-            "avg_quality":  round(avg_quality, 2),
             "tier":         tier,
         }
 
@@ -513,23 +407,23 @@ def run_benchmark(host: str, models: list[str], benchmark_config: dict) -> dict:
 # ─────────────────────────────────────────────────────────────
 
 def console_summary(results: dict):
-    """Print ranked summary to stdout."""
+    """Print ranked summary to stdout (throughput/latency only)."""
     ranked = sorted(
         results.items(),
-        key=lambda x: (x[1]["overall"]["avg_quality"], x[1]["overall"]["avg_tps"]),
+        key=lambda x: (x[1]["overall"]["avg_tps"], -x[1]["overall"]["avg_ttft"]),
         reverse=True,
     )
 
     cats = ["reasoning", "summarization", "coding", "agentic"]
-    separator = "=" * 110
+    separator = "=" * 100
     print(f"\n{separator}")
-    print("  FINAL RANKINGS")
+    print("  FINAL RANKINGS (speed only)")
     print(separator)
-    hdr = f"{'#':<4} {'Model':<48} {'Tier':<12} {'Quality':>7} {'TPS':>6} {'TTFT':>7}"
+    hdr = f"{'#':<4} {'Model':<48} {'Tier':<12} {'TPS':>6} {'TTFT':>7}"
     for c in cats:
-        hdr += f"  {c[:6].capitalize():>6}"
+        hdr += f"  {c[:6].capitalize():>7}"
     print(hdr)
-    print("-" * 110)
+    print("-" * 100)
 
     for rank, (model, data) in enumerate(ranked, 1):
         o  = data["overall"]
@@ -538,11 +432,11 @@ def console_summary(results: dict):
         tier_short = o["tier"].split()[-1]
         row = (
             f"{rank:<4} {short:<48} {tier_short:<12} "
-            f"{o['avg_quality']:>7.1f} {o['avg_tps']:>6.1f} {o['avg_ttft']:>6.2f}s"
+            f"{o['avg_tps']:>6.1f} {o['avg_ttft']:>6.2f}s"
         )
         for c in cats:
-            q = cs.get(c, {}).get("avg_quality", 0)
-            row += f"  {q:>6.1f}"
+            t = cs.get(c, {}).get("avg_tps", 0)
+            row += f"  {t:>7.1f}"
         print(row)
 
     # Recommendations
@@ -551,10 +445,7 @@ def console_summary(results: dict):
     print(f"{'─'*60}")
     tiers = {"EXCELLENT": [], "GOOD": [], "ADEQUATE": [], "MARGINAL": [], "POOR": []}
     for model, data in ranked:
-        _, short = classify_tier(
-            data["overall"]["avg_quality"],
-            data["overall"]["avg_tps"]
-        )
+        _, short = classify_tier(data["overall"]["avg_tps"])
         tiers[short].append(model)
 
     labels = {
@@ -573,10 +464,10 @@ def console_summary(results: dict):
 
 
 def save_html_report(results: dict, path: str):
-    """Write a dark-themed HTML report with sortable table."""
+    """Write a dark-themed HTML report with sortable table (speed only)."""
     ranked = sorted(
         results.items(),
-        key=lambda x: x[1]["overall"]["avg_quality"],
+        key=lambda x: x[1]["overall"]["avg_tps"],
         reverse=True,
     )
     cats = ["reasoning", "summarization", "coding", "agentic"]
@@ -593,37 +484,35 @@ def save_html_report(results: dict, path: str):
     for rank, (model, data) in enumerate(ranked, 1):
         o  = data["overall"]
         cs = data["categories"]
-        _, short_tier = classify_tier(o["avg_quality"], o["avg_tps"])
+        _, short_tier = classify_tier(o["avg_tps"])
         color = tier_colors.get(short_tier, "#8b949e")
         cat_cells = "".join(
-            f"<td>{cs.get(c, {}).get('avg_quality', 0):.1f}</td>" for c in cats
+            f"<td>{cs.get(c, {}).get('avg_tps', 0):.1f}</td>" for c in cats
         )
         rows_html += (
             f"<tr>"
             f"<td>{rank}</td>"
             f"<td><strong>{model}</strong></td>"
             f"<td style='color:{color};font-weight:bold'>{o['tier']}</td>"
-            f"<td>{o['avg_quality']:.1f}</td>"
             f"<td>{o['avg_tps']:.1f}</td>"
             f"<td>{o['avg_ttft']:.2f}s</td>"
-            f"{cat_cells}"
             f"</tr>\n"
         )
 
     legend_rows = ""
-    for min_q, min_t, label, short in TIER_THRESHOLDS:
+    for min_t, label, short in TPS_TIER_THRESHOLDS:
         color = tier_colors.get(short, "#8b949e")
         rec_map = {
-            "EXCELLENT": "Keep as primary model",
-            "GOOD":      "Keep for specific tasks",
-            "ADEQUATE":  "Keep if unique; otherwise prune",
-            "MARGINAL":  "Consider removing",
-            "POOR":      "Remove / replace",
+            "EXCELLENT": "Primary throughput",
+            "GOOD":      "Solid throughput",
+            "ADEQUATE":  "Usable on small tasks",
+            "MARGINAL":  "Latency-heavy",
+            "POOR":      "Too slow to be useful",
         }
         legend_rows += (
             f"<tr>"
             f"<td style='color:{color};font-weight:bold'>{label}</td>"
-            f"<td>Quality ≥ {min_q}, TPS ≥ {min_t}</td>"
+            f"<td>TPS ≥ {min_t}</td>"
             f"<td>{rec_map[short]}</td>"
             f"</tr>\n"
         )
@@ -632,7 +521,7 @@ def save_html_report(results: dict, path: str):
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Ollama Benchmark Report – {now}</title>
+<title>Ollama Speed Benchmark Report – {now}</title>
 <style>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -654,20 +543,20 @@ def save_html_report(results: dict, path: str):
 </style>
 </head>
 <body>
-<h1>🤖 Ollama Model Benchmark Report</h1>
+<h1>🤖 Ollama Model Speed Report</h1>
 <p class="meta">Generated: {now} &nbsp;|&nbsp; Server: {OLLAMA_HOST} &nbsp;|&nbsp; Models tested: {len(results)}</p>
 
 <div class="tip">
-  <strong>Quality score</strong> is a heuristic 0–100 based on keyword presence, response structure,
-  and category-specific formatting checks. <strong>TPS</strong> = tokens per second (GPU throughput).
-  <strong>TTFT</strong> = time to first token (user-perceived latency).
+  This script measures <strong>throughput and latency only</strong>. Heuristic quality
+  scoring was removed — correctness is assessed by <code>benchmark_quality.py</code>
+  and <code>benchmark_agent.py</code>, not by a speed harness.
 </div>
 
 <h2>Overall Rankings</h2>
 <table>
 <tr>
   <th>#</th><th>Model</th><th>Tier</th>
-  <th>Quality ↓</th><th>TPS</th><th>TTFT</th>
+  <th>TPS ↓</th><th>TTFT</th>
   <th>Reasoning</th><th>Summarize</th><th>Coding</th><th>Agentic</th>
 </tr>
 {rows_html}
@@ -687,7 +576,7 @@ def save_html_report(results: dict, path: str):
   • <code>gemma3:27b</code> vs <code>hf.co/unsloth/gemma-3-27b-it-GGUF:Q4_K_XL</code> — same base model<br>
   • <code>gpt-oss:20b</code> vs <code>hf.co/unsloth/gpt-oss-20b-GGUF:F16</code> — same base, different quant<br>
   • <code>qwen3-coder:30b</code> vs <code>hf.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:UD-Q4_K_XL</code> — same base model<br>
-  Keep the higher-scoring one from each pair and remove the other to reclaim disk space.
+  Keep the higher-throughput one from each pair and remove the other to reclaim disk space.
 </div>
 </body>
 </html>
@@ -698,30 +587,29 @@ def save_html_report(results: dict, path: str):
 
 
 def save_csv(results: dict, path: str):
-    """Write flat CSV of per-model aggregate scores."""
+    """Write flat CSV of per-model aggregate speed metrics."""
     cats = ["reasoning", "summarization", "coding", "agentic"]
-    fieldnames = ["rank", "model", "tier", "avg_quality", "avg_tps", "avg_ttft"] + \
-                 [f"{c}_quality" for c in cats]
+    fieldnames = ["rank", "model", "tier", "avg_tps", "avg_ttft"] + \
+                 [f"{c}_tps" for c in cats]
     ranked = sorted(
         results.items(),
-        key=lambda x: x[1]["overall"]["avg_quality"],
+        key=lambda x: x[1]["overall"]["avg_tps"],
         reverse=True,
     )
     rows = []
     for rank, (model, data) in enumerate(ranked, 1):
         o  = data["overall"]
         cs = data["categories"]
-        _, short_tier = classify_tier(o["avg_quality"], o["avg_tps"])
+        _, short_tier = classify_tier(o["avg_tps"])
         row = {
             "rank":      rank,
             "model":     model,
             "tier":      short_tier,
-            "avg_quality": round(o["avg_quality"], 2),
             "avg_tps":     round(o["avg_tps"], 2),
             "avg_ttft":    round(o["avg_ttft"], 3),
         }
         for c in cats:
-            row[f"{c}_quality"] = round(cs.get(c, {}).get("avg_quality", 0), 2)
+            row[f"{c}_tps"] = round(cs.get(c, {}).get("avg_tps", 0), 2)
         rows.append(row)
 
     with open(path, "w", newline="", encoding="utf-8") as f:

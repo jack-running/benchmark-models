@@ -1,99 +1,86 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for working with this repository.
 
 ## Overview
 
-Correctness-first benchmarking framework for local Ollama language models. Evaluates whether models produce correct answers (not just fast ones) by executing code, parsing JSON tool calls, and verifying facts. Targets ~34 models on a 24 GB VRAM / 64 GB RAM local Ollama deployment.
+Correctness-first benchmarking for local Ollama models, in three complementary
+tools:
 
-## Running Benchmarks
+- `benchmark_agent.py` — **gate-first agentic benchmark**: a hermetic native
+  tool loop (Layer A) plus the same fixtures/verifiers driven through the real
+  `opencode` / `omp` / `cline` binaries (Layer B). Gates G0–G5, then a
+  reliability profile; tier verdicts, never weighted averages.
+- `benchmark_quality.py` — deterministic single-turn correctness benchmark
+  (code execution, numeric, tool-call JSON, facts).
+- `benchmark_ollama.py` — speed only (TTFT/TPS). Heuristic quality scoring
+  was deliberately removed.
+
+Default Ollama host: `http://192.168.0.149:11434`; `127.0.0.1:11434` is the
+pinned secondary host. Deps: `requests` only. Python 3.10+.
+
+## Module layout
+
+| Module | Role |
+|---|---|
+| `ollama_client.py` | shared `/api/chat` client: probe (`ModelProfile`), seeded `chat`, warmup, bounded retries, `effective_num_ctx` |
+| `agent_workspace.py` | hermetic sandbox (`Workspace`), `ToolRegistry` (7 tools), `SAFE_ENV` for subprocesses |
+| `agent_loop.py` | native tool loop (`run_episode` → `Episode`) with step/wall budgets, schema validation, path-escape tracking |
+| `agent_tasks.py` | 19 tasks (fixtures + end-state verifiers), grounding corpus (~60k tokens), `HARNESS_SYSTEM_PROMPT` (~7.5–8.5k tokens, measured) |
+| `harness_drivers.py` | Layer B: `OpenCodeDriver` / `OmpDriver` / `ClineDriver` / `NativeDriver` |
+| `gates.py` | G0–G5 evaluation, tier verdicts, reliability (pass@1, pass^k, Wilson CI) |
+| `benchmark_agent.py` | CLI: `--stage probe|smoke|native|e2e`, `--models`, `-k`, `--harness`, `--json` |
+| `benchmark_quality.py` | correctness suite runner (default suite `test_suite_v3.json`) |
+| `benchmark_ollama.py` | speed benchmark (TTFT/TPS) |
+
+## Hard rules to preserve
+
+- **Verifiers check end state, never free prose.** `task.verify(ws, ep)` must
+  inspect files/subprocesses/nonces. Never grade the model's explanation.
+- **Same verifier for all 4 backends** (native + opencode + omp + cline).
+- **Gates before scores.** A model that fails a gate is `BLOCKED` with a
+  reason — never a 0-score.
+- **`HARNESS_SYSTEM_PROMPT` is measured, not estimated**: 7,500–8,500 tokens
+  via `prompt_eval_count` on the target model (~4.44 chars/token).
+- **Layer A is hermetic**: sandboxed workspace, no network, `SAFE_ENV` for
+  `run_tests` (no `SECRET_TEST` leak, no home-dir writes).
+- **G4 (fabrication)**: `read_file`/`grep` are deliberately absent (tools are
+  `list_dir` + `finish`); pass iff no integer beyond what appears in **any**
+  tool output (list_dir *or* a read) is in `final_text`. A number grounded in
+  a read is legitimate — this is how the same verifier grades the native loop
+  and the real harnesses (which use their own `read`/`glob`/`bash` palettes).
+- **Windows-locale trap**: never decode a harness child pipe with the locale
+  codec (`subprocess.run(..., text=True)` uses cp1252 and crashes on byte
+  `0x9d`). Capture **bytes** and decode `utf-8, errors="replace"` yourself
+  (see `harness_drivers._run_proc`).
+- `SKIP_MODELS = {"qwen3-embedding:8b", "deepseek-ocr:latest"}` — never run
+  these (non-generative).
+
+## Running
 
 ```bash
-# Full benchmark (all models, all tests, default context 4096)
-python benchmark_quality.py
-
-# Specific models
-python benchmark_quality.py --models llama3.2:3b qwen3-coder:30b
-
-# Specific categories
-python benchmark_quality.py --categories coding agentic
-
-# Custom test suite
-python benchmark_quality.py --suite test_suite_extreme.json
-
-# Larger context (required for MCP tests which use 400-700 tokens for tool schemas)
-python benchmark_quality.py --num-ctx 16384
-
-# Thinking mode (for Qwen3, DeepSeek-R1, GLM-4 — not all models support it)
-python benchmark_quality.py --num-ctx 48000 --think
-
-# Quick preview (2 tests per category)
-python benchmark_quality.py --quick
-
-# List available models / export built-in suite
-python benchmark_quality.py --list
-python benchmark_quality.py --save-suite
-
-# Speed-only benchmark
-python benchmark_ollama.py
-
-# Debug streaming issues
-python diagnose_ollama.py --model <model-name>
+python benchmark_agent.py --stage probe                          # fleet filter (no GPU)
+python benchmark_agent.py --stage smoke --models <m>             # G1 drop
+python benchmark_agent.py --stage native --models qwen3-coder:30b -k 3   # 57 episodes
+python benchmark_agent.py --stage e2e --harness opencode --harness omp --models <m> -k 3
+python benchmark_quality.py --suite test_suite_v3.json --seed 42
+python benchmark_ollama.py --quick
+python -m pytest tests/ -q                                      # offline self-tests (V1)
 ```
 
-## Architecture
+## Conventions
 
-Three single-file scripts with no package structure. Only external dependency is `requests`.
-
-**`benchmark_quality.py`** — Main script (1,475 lines). Flow:
-1. Load test suite JSON → get available models from Ollama API
-2. For each model × test: call model via `/api/generate` (streaming JSONL), extract response, evaluate
-3. Aggregate results → output JSON + CSV + HTML
-
-**`benchmark_ollama.py`** — Speed benchmark measuring TTFT/TPS with heuristic quality scoring.
-
-**`diagnose_ollama.py`** — Debugging utility for models that output to wrong response fields.
-
-### Evaluation Types
-
-| `eval_type` | Mechanism |
-|---|---|
-| `numeric` | Regex-extract number; check within tolerance |
-| `code_execution` | Extract code block; run in Python subprocess (10s timeout); compare `repr(result)` |
-| `tool_call` | Parse first JSON object; verify tool name + required args; substring match on expected values |
-| `contains_all` | All required facts/keywords present (case-insensitive) |
-| `exact` | Exact string match (case-insensitive) |
-| `regex` | Response matches pattern |
-
-### API Call Parameters
-
-- Temperature: **0.05** (fixed, intentional for reproducibility)
-- Default context: 4096 tokens
-- MCP tests need 8192+; extreme suite needs 16384+
-- Thinking mode sends `think: true` to Ollama
-
-### Output Files
-
-Named `quality_ctx{context}_{think|nothink}_{timestamp}.{json,csv,html}`. JSON contains full per-model, per-test results including pass/fail, TPS, TTFT, and model response text. CSV has ranked summary. HTML is an interactive dark-theme report.
-
-### Test Suites
-
-- `test_suite_v3.json` — 110 tests across 5 categories (recommended)
-- `test_suite_hard.json` — 40 harder tests
-- `test_suite_extreme.json` — 40 extreme tests (HumanEval Hard, AIME-style, LeetCode Hard)
-
-Test schema: each test has `id`, `category`, `eval_type`, `difficulty`, `prompt`, `max_tokens`, plus eval-specific fields (`expected_number`, `test_cases`, `required_args`, etc.).
-
-### Configuration
-
-Edit constants at the top of each script:
-- `OLLAMA_HOST` — default `http://192.168.0.149:11434`
-- `SKIP_MODELS` — set of model names to exclude (embedding/OCR models)
-
-Performance tiers: EXCELLENT (≥85%), GOOD (70–84%), ADEQUATE (50–69%), MARGINAL (30–49%), POOR (<30%).
-
-## Known Issues
-
-- **Thinking mode 400 errors**: Models like `qwen3-coder:30b`, `llama3.2:3b`, `granite4:small-h` don't support `think: true` — they return HTTP 400 and score 0% when `--think` is used.
-- **Code execution timeout**: 10-second limit per test case; exponential-complexity algorithms will fail.
-- **Streaming field issues**: Some models write to unexpected response fields — use `diagnose_ollama.py` to debug.
+- Every module imports cleanly on Windows (`pathlib`, no shell-isms; `.cmd`
+  resolution for harness binaries).
+- **Layer B (e2e) runs on every model that reached the native stage**, even a
+  gate-blocked one — `transfer_delta` is measured separately from the gate
+  verdict. The 6 E2E task ids are `c1_add_function`, `c2_fix_failing_test`,
+  `e02`, `e03`, `g4_fabrication`, `a5_recovery`.
+- JSON output: `results/` (git-ignored; regenerable) with a `config` header
+  (host, ollama version, suite sha, harness versions) so runs are
+  reproducible. Run verdicts are only persisted when you pass `--json` —
+  including Layer B, which is **not** printed to the console.
+- Determinism: temperature 0.0 + explicit `seed` for quality; seeded task
+  sampling for the agentic loop.
+- `benchmark_quality.py` `--think` is capability-gated via `probe_model`
+  (a model without the `thinking` capability is never sent `think: true`).

@@ -1,413 +1,203 @@
-# Ollama Model Benchmark Suite
+# Ollama Model Benchmark Suites
 
-A correctness-first benchmarking framework for [Ollama](https://ollama.com) language models. Unlike pure speed benchmarks, this suite evaluates whether models actually answer questions correctly — executing code, parsing tool calls, checking numeric precision, and verifying facts — across four capability domains.
+Benchmarking toolkit for local [Ollama](https://ollama.com) deployments. Three
+independent tools, each answering a different question:
 
-Designed for local Ollama deployments (tested on 24 GB VRAM / 64 GB RAM hardware running ~34 models simultaneously).
+| Tool | Question | Mechanism |
+|---|---|---|
+| `benchmark_agent.py` | **Can the model drive a coding agent?** | Hermetic Layer A tool-loop + real Layer B harnesses (`opencode` / `omp` / `cline`), gate-first verdicts |
+| `benchmark_quality.py` | **Are the answers correct?** | Deterministic, machine-verifiable correctness tests (execution, numeric, tool-call JSON, facts) |
+| `benchmark_ollama.py` | **How fast is inference?** | Throughput/latency only (TTFT, TPS) |
+
+The three are complementary: `benchmark_ollama.py` measures *speed*,
+`benchmark_quality.py` measures *single-turn correctness*, and
+`benchmark_agent.py` measures the *end-to-end agentic ability* — whether a
+model can hold a multi-step tool loop over real code, and whether that
+ability transfers to the actual CLI harnesses you would ship.
+
+Requirements: Python 3.10+, `pip install requests`, and a reachable Ollama
+server (default `http://192.168.0.149:11434`). Layer B additionally needs the
+harness binaries on `PATH`: `opencode`, `omp`, and/or `cline` (the last is
+only present if you install it).
+
+See [`CHANGELOG.md`](CHANGELOG.md) for the full history of this rewrite.
+Benchmark run output is written to `results/` (git-ignored) via `--json`.
 
 ---
 
-## Files at a Glance
+## 1. `benchmark_agent.py` — gate-first agentic benchmark
 
-| File | Purpose |
-|---|---|
-| `benchmark_quality.py` | Main benchmark: correctness-based evaluation across all categories |
-| `benchmark_ollama.py` | Speed + heuristic quality benchmark (TTFT, TPS, keyword scoring) |
-| `diagnose_ollama.py` | Debug tool: dumps raw Ollama API chunk fields to diagnose streaming issues |
-| `test_suite_v3.json` | Standard test suite — 110 tests across 5 categories |
-| `test_suite_hard.json` | Hard test suite — 40 tests, DP algorithms, Bayesian math, complex tool calls |
-| `test_suite_extreme.json` | Extreme test suite — 40 tests drawn from HumanEval hard, AIME-style math, LeetCode Hard |
-| `test_suite_extended.json` | Earlier 40-test suite (superseded by v3) |
-| `quality_ctx*_nothink_*.{json,csv,html}` | Benchmark run results with thinking mode OFF |
-| `quality_ctx*_think_*.{json,csv,html}` | Benchmark run results with thinking mode ON |
+The centerpiece. It is a **two-layer** benchmark over the same fixtures and
+verifiers, scored by **binary gates** followed by a **reliability profile** —
+never a weighted mean.
 
----
+### Layers
 
-## Quick Start
+- **Layer A (native):** a hermetic tool loop against Ollama `/api/chat` with
+  native tool schemas. A sandbox workspace and a 7-tool set — `read_file`,
+  `list_dir`, `grep`, `write_file`, `edit_file`, `run_tests`, `finish` —
+  feed each model a set of Python fixtures. The model must perform edits,
+  run tests, and terminate — all graded on **end state** (files, subprocesses,
+  nonces), never on free prose.
+- **Layer B (real harnesses):** — the *same* fixtures and *same*
+  `task.verify()` verdict, driven through the actual binaries:
+  `opencode`, `omp`, and `cline`. Layer B grading never reads harness stdout;
+  it re-runs `task.verify()` on the workspace.
 
-### Requirements
+Because Layer A and Layer B share fixtures *and* verifiers, the delta between
+them is a clean measure of **harness transfer** (an opencode model that
+fails in the native loop but passes in Layer B signals an environment
+difference, not a capability difference).
 
-- Python 3.10+
-- `pip install requests`
-- An Ollama server running and accessible (default: `http://192.168.0.149:11434`)
+### Stages (each runs up to and including itself)
 
-### Run the quality benchmark (recommended)
+| Stage | What it does | Why |
+|---|---|---|
+| `probe` | `/api/show` every model | cheap fleet filter, no GPU |
+| `smoke` | `probe_read` + one completion task, k=1 | drops models that can't even emit one tool call (G1) |
+| `native` | all 19 tasks × k samples, Layer A | computes G2–G5 and the axis reliability profile |
+| `e2e` | the 6 E2E tasks × k × chosen harnesses | Layer B transfer on top of a native run |
+
+### Gates (G0–G5)
+
+Gates run in order on Layer A. A model is elevated to a tier only if
+**all** gates pass; the first failing gate names the blocking reason.
+
+| Gate | Check | Drops a model when… |
+|---|---|---|
+| G0 declares tools | `/api/show` exposes a `tools` template | the model can't do tool calling at all |
+| G1 emits tool call | probe episode issued ≥ 1 tool call | the model never calls a tool |
+| G2 schema-valid | ≥ 0.98 of tool calls parse against the schema | calls are malformed |
+| G3 terminates | every episode hits `finish`, not step/wall budget | the loop never ends |
+| G4 no fabrication | every fabrication sample grounds its number in tool output | it invents file contents without reading them |
+| G5 workspace-safe | zero path escapes | it writes/reads outside the sandbox |
+
+### Tiers (after gates)
+
+- `HARNESS_READY` — all gates pass, overall `pass^k ≥ 0.80`, `edit ≥ 0.80`,
+  `instruction ≥ 0.70`.
+- `SUPERVISED` — passes all gates but misses one reliability bar.
+- `NOT_RECOMMENDED` / `BLOCKED` — the model fails a gate; a **reason** is
+  always reported (`failed_gate`), never a 0-score.
+
+### Reliability profile
+
+`pass@1` (fraction of episodes that pass), `pass^k` (fraction of tasks where
+*all k* samples pass — the honest metric for "will it always work"), and a
+Wilson 95% CI on `pass@1`. Reported per axis (`probe`, `completion`, `edit`,
+`instruction`, `grounding`, `fabrication`, `recovery`) and overall.
+
+### Running
 
 ```bash
-# Benchmark all models using the built-in test suite
-python benchmark_quality.py
+# 19 tasks × 3 samples on one model → 57 episodes
+python benchmark_agent.py --stage native --models qwen3-coder:30b -k 3
 
-# Use a custom test suite file
-python benchmark_quality.py --suite test_suite_v3.json
+# Full fleet on all tasks, 5 samples each
+python benchmark_agent.py --stage native -k 5
 
-# Test specific models only
-python benchmark_quality.py --models llama3.2:3b qwen3-coder:30b --suite test_suite_v3.json
+# Layer B on top of a native run (harness transfer)
+python benchmark_agent.py --stage e2e --harness opencode --harness omp --models qwen3-coder:30b -k 3
 
-# Run only certain categories
-python benchmark_quality.py --suite test_suite_v3.json --categories coding agentic
-
-# Set context window (important for MCP/agentic tests with long system prompts)
-python benchmark_quality.py --suite test_suite_extreme.json --num-ctx 16384
-
-# Enable chain-of-thought reasoning mode
-python benchmark_quality.py --suite test_suite_extreme.json --num-ctx 16384 --think
-
-# Quick preview (2 tests per category)
-python benchmark_quality.py --quick
-
-# List available models without running any tests
-python benchmark_quality.py --list
-
-# Export the built-in test suite to a JSON file
-python benchmark_quality.py --save-suite
+# Probe only (cheap fleet filter)
+python benchmark_agent.py --stage probe
 ```
 
-### Run the speed benchmark
+The 6 E2E tasks (Layer B subset) are `c1_add_function`, `c2_fix_failing_test`,
+`e02` (edit `src/string_utils.py`), `e03` (edit `src/report_gen.py`),
+`g4_fabrication`, and `a5_recovery` — the same 6 are run per selected harness
+in Layer B.
+
+`--json results/candidate.json` writes the full report (gates, per-task pass,
+reliability, per-harness Layer B transfer delta).
+
+---
+
+## 2. `benchmark_quality.py` — correctness benchmark
+
+Deterministic correctness evaluation. Each response is graded by a
+machine-verifiable method, never a heuristic:
+
+| `eval_type` | Mechanism | Used for |
+|---|---|---|
+| `numeric` | regex-extract number; check within `tolerance` | math / reasoning |
+| `code_execution` | extract code block; run in a subprocess; compare `repr(result)` | coding |
+| `tool_call` | parse first JSON object; check tool name + required args | agentic / mcp |
+| `contains_all` | all `required_facts` present (case-insensitive) | summarization |
+| `exact` | exact string match | factual answers |
+| `regex` | response matches pattern | structured output |
+
+```bash
+# Default: the standard 110-test suite
+python benchmark_quality.py --suite test_suite_v3.json
+
+# Only cert categories
+python benchmark_quality.py --suite test_suite_v3.json --categories coding agentic
+
+# Reproducible runs share a seed (default 42)
+python benchmark_quality.py --suite test_suite_v3.json --seed 42
+
+# Larger context for MCP / agentic tests
+python benchmark_quality.py --suite test_suite_extreme.json --num-ctx 16384
+
+# List models / quick preview
+python benchmark_quality.py --list
+python benchmark_quality.py --quick
+```
+
+Notes on the environment:
+- Temperature is **0.0** and sampling is seeded for reproducibility.
+- `--think` is **capability-gated**: it is only sent to models that actually
+  support thinking, so a non-thinking model is never force‑400'd. The thinking
+  stream is recorded separately from the answer.
+- A response that puts its answer *only* in the `thinking` field is a
+  **extraction failure** (fails), not a pass. A response truncated at
+  `num_predict` is recorded with its truncation reason.
+
+---
+
+## 3. `benchmark_ollama.py` — speed benchmark (TPS/TTFT only)
+
+Throughput and latency, nothing else. Heuristic quality scoring was removed;
+content correctness is `benchmark_quality.py` / `benchmark_agent.py`'s job.
 
 ```bash
 python benchmark_ollama.py
-python benchmark_ollama.py --quick
+python benchmark_ollama.py --quick            # 1 test per category
 python benchmark_ollama.py --models qwen3.5:9b deepseek-r1:32b
-python benchmark_ollama.py --host http://localhost:11434
 ```
 
-### Diagnose a failing model
+Tiers are TPS-only: EXCELLENT ≥30, GOOD ≥15, ADEQUATE ≥8, MARGINAL ≥3, POOR <3.
+
+---
+
+## Diagnostic
 
 ```bash
-python diagnose_ollama.py
 python diagnose_ollama.py --model qwen3.5:27b --prompt "What is 17*23?"
 ```
-
----
-
-## benchmark_quality.py
-
-The primary benchmark. Evaluates models on correctness using deterministic, machine-verifiable methods — not heuristics or keyword matching.
-
-### Output
-
-Each run produces three files named by context window size, thinking mode, and timestamp:
-
-```
-quality_ctx16384_nothink_20260316_105636.csv   — ranking table (one row per model)
-quality_ctx16384_nothink_20260316_105636.json  — full per-test results with reasons
-quality_ctx16384_nothink_20260316_105636.html  — interactive HTML report
-```
-
-### Evaluation Methods
-
-| `eval_type` | How it works | Used for |
-|---|---|---|
-| `numeric` | Extracts a number from the response; checks it is within `tolerance` of `expected_number` | Math and reasoning questions |
-| `code_execution` | Extracts the code block from the response; runs each `test_case` call in a subprocess; compares `repr()` of the return value | Coding problems |
-| `tool_call` | Parses the first JSON object in the response; checks `tool` name matches `expected_tool`; checks all `required_args` keys are present; checks each `expected_args` value appears (substring match) | Agentic and MCP tool-calling |
-| `contains_all` | Checks that all strings in `required_facts` appear in the response (case-insensitive) | Summarization and factual recall |
-| `exact` | Exact string match (case-insensitive by default) | Short factual answers |
-| `regex` | Response must match a regular expression pattern | Structured output verification |
-
-### Performance Tiers
-
-| Tier | Pass Rate |
-|---|---|
-| EXCELLENT | ≥ 80% |
-| GOOD | ≥ 60% |
-| FAIR | ≥ 40% |
-| POOR | < 40% |
-
-### Thinking Mode (`--think`)
-
-Ollama ≥ 0.7 and models like Qwen3, DeepSeek-R1, and GLM-4 support a reasoning mode where the model "thinks" before answering. Tokens generated during thinking appear in the `thinking` field of the API response, not `response`.
-
-Key considerations:
-
-- **Not all models support it.** Models that don't support `think: true` return HTTP 400, causing all their tests to fail. Check the result JSON's `reason` field for `API error: 400` to identify incompatible models.
-- **Thinking consumes token budget.** The `num_predict` limit applies to thinking tokens + response tokens combined. The extreme suite uses `max_tokens` of 600–1400 to ensure enough headroom.
-- **Thinking helps reasoning, can hurt coding/tool calls.** With thinking ON, models may produce verbose output that breaks the code extractor or JSON parser.
-- **Default is OFF** (`--nothink`) for consistent, comparable results across models.
-
-### Configuring the Ollama Host
-
-Edit the `OLLAMA_HOST` constant at the top of the script:
-
-```python
-OLLAMA_HOST = "http://192.168.0.149:11434"
-```
-
-Or pass it at runtime:
-
-```bash
-python benchmark_quality.py --host http://localhost:11434
-```
-
----
-
-## benchmark_ollama.py
-
-An earlier, speed-focused benchmark. Measures Time-to-First-Token (TTFT) and Tokens-per-Second (TPS), and assigns a heuristic quality score (0–100) based on keyword presence in responses.
-
-Useful for a quick comparison of inference speed across models. For correctness evaluation, use `benchmark_quality.py` instead.
-
----
-
-## diagnose_ollama.py
-
-A debugging utility that dumps raw Ollama streaming API chunks to stdout. Use this when a model returns empty responses or behaves unexpectedly.
-
-It runs three tests automatically:
-1. Default payload (no explicit `think` setting)
-2. Explicit `think: false`
-3. Explicit `think: false` with a generous token budget
-
-This helps identify whether a model is streaming its output to the `thinking` field instead of `response` — a common issue with Ollama ≥ 0.7 reasoning models.
+Dumps raw streaming API chunks to debug models writing to the wrong field.
 
 ---
 
 ## Test Suites
 
-Test suites are JSON files with a `tests` array. Each test is a dictionary with fields that depend on its `eval_type`. All tests require: `id`, `name`, `category`, `eval_type`, `difficulty`, `prompt`, `max_tokens`.
+- `test_suite_v3.json` — standard, 110 tests (reasoning/coding/agentic/
+  summarization × 25, mcp 10). **Recommended.**
+- `test_suite_hard.json` — 40 harder tests (DP, Bayesian, nested tool schemas).
+- `test_suite_extreme.json` — 40 hard-to-break tests drawn from HumanEval hard,
+  AIME-style math, LeetCode hard.
 
-### test_suite_v3.json — Standard (110 tests)
+Suite format: a `tests` array; each test has `id`, `name`, `category`,
+`eval_type`, `difficulty`, `prompt`, `max_tokens`, plus eval-specific fields
+(`expected_number`, `test_cases`, `required_args`, `expected_tool`, …).
 
-The main general-purpose suite. Recommended starting point.
+### Ollama hosts
 
-| Category | Tests | Eval Types |
-|---|---|---|
-| `reasoning` | 25 | numeric, contains_all |
-| `coding` | 25 | code_execution |
-| `agentic` | 25 | tool_call |
-| `summarization` | 25 | contains_all, regex |
-| `mcp` | 10 | tool_call |
+Two hosts are pinned explicitly as constants:
 
-**Recommended:** `--num-ctx 8192`
+- `OLLAMA_HOST = "http://192.168.0.149:11434"` (the rich fleet — this is the
+  default benchmark target)
+- `http://127.0.0.1:11434` (secondary host with a different model set)
 
-```bash
-python benchmark_quality.py --suite test_suite_v3.json --num-ctx 8192
-```
-
-### test_suite_hard.json — Hard (40 tests)
-
-Harder versions of each category. Includes DP algorithms (LCS, edit distance, coin change), Bayesian probability, system-of-equations reasoning, and MCP tool schemas with nested parameters.
-
-| Category | Tests | Highlights |
-|---|---|---|
-| `coding` | 10 | LCS, edit distance, rain water trapping, coin change, word break |
-| `reasoning` | 10 | C(10,2), conditional probability, modular arithmetic, compound interest |
-| `agentic` | 10 | 8-tool palette including `write_file`, `create_event`, `get_user_profile` |
-| `mcp` | 10 | Nested dict params, boolean + datetime + integer required together, tool chaining |
-
-**Recommended:** `--num-ctx 16384`
-
-### test_suite_extreme.json — Extreme (40 tests)
-
-Designed to break 100% pass rates on capable 27B models. Draws from HumanEval hard problems, LeetCode Hard, AIME-style competition math, and BFCL-style function calling.
-
-| Category | Tests | Highlights |
-|---|---|---|
-| `extreme_coding` | 10 | Word Ladder BFS, N-Queens (must return 92 for n=8), Minimum Window Substring, LIS O(n log n), expression evaluator with parentheses, Hierholzer's itinerary reconstruction, max product subarray |
-| `extreme_reasoning` | 10 | 7^(7^7) mod 100 = 43, right triangle area from inradius, Bayesian factory defect, Σk/2^k = 2, divisor count from prime factorization |
-| `extreme_agentic` | 10 | 10-tool palette including `post_webhook` and `translate_text`; tests disambiguation between superficially similar tools |
-| `extreme_mcp` | 10 | Nested `date_range` objects, `idempotency_key` required param, `compress_file` vs `resize_image` disambiguation, pagination offset |
-
-**Recommended:** `--num-ctx 16384` (or `--num-ctx 48000` for thinking mode)
-
-```bash
-# Without thinking (faster, good for most models)
-python benchmark_quality.py --suite test_suite_extreme.json --num-ctx 16384
-
-# With thinking (better reasoning scores, but only for models that support it)
-python benchmark_quality.py --suite test_suite_extreme.json --num-ctx 48000 --think
-```
-
----
-
-## Writing Custom Test Suites
-
-Create a JSON file with the following structure:
-
-```json
-{
-  "version": "1.0",
-  "description": "My custom tests",
-  "tests": [
-    {
-      "id": "my_r01",
-      "name": "descriptive_name",
-      "category": "reasoning",
-      "eval_type": "numeric",
-      "difficulty": "medium",
-      "prompt": "What is 15% of 240? Give only the number.",
-      "expected_number": 36,
-      "tolerance": 0.5,
-      "max_tokens": 20
-    },
-    {
-      "id": "my_c01",
-      "name": "reverse_string",
-      "category": "coding",
-      "eval_type": "code_execution",
-      "difficulty": "easy",
-      "prompt": "Write a Python function `reverse_str(s)` that returns the reverse of string s. Output only the function definition.",
-      "function_name": "reverse_str",
-      "test_cases": [
-        {"call": "reverse_str('hello')", "expected": "olleh"},
-        {"call": "reverse_str('')",      "expected": ""}
-      ],
-      "max_tokens": 200
-    },
-    {
-      "id": "my_a01",
-      "name": "search_not_profile",
-      "category": "agentic",
-      "eval_type": "tool_call",
-      "difficulty": "hard",
-      "system": "You are an AI agent. Output ONLY a JSON object: {\"tool\": \"<name>\", \"args\": {<key>: <value>}}\n\nAvailable tools:\n- search_web(query: str)\n- get_user_profile(user_id: str)",
-      "prompt": "Find the latest news about quantum computing.",
-      "expected_tool": "search_web",
-      "expected_args": {"query": "quantum computing"},
-      "required_args": ["query"],
-      "max_tokens": 150
-    },
-    {
-      "id": "my_s01",
-      "name": "summarization_facts",
-      "category": "summarization",
-      "eval_type": "contains_all",
-      "difficulty": "easy",
-      "prompt": "Summarize: The Eiffel Tower was built in 1889 for the World's Fair in Paris. It stands 330 metres tall.",
-      "required_facts": ["1889", "paris", "330"],
-      "max_tokens": 100
-    }
-  ]
-}
-```
-
-### Test Schema Reference
-
-#### `numeric`
-```json
-{
-  "eval_type": "numeric",
-  "expected_number": 45,
-  "tolerance": 0,
-  "max_tokens": 30
-}
-```
-`tolerance: 0` requires an exact match. Use small values like `0.001` for floating-point answers.
-
-#### `code_execution`
-```json
-{
-  "eval_type": "code_execution",
-  "function_name": "my_func",
-  "test_cases": [
-    {"call": "my_func(arg1, arg2)", "expected": <python_value>}
-  ],
-  "max_tokens": 500
-}
-```
-The model must output a code block containing only the function definition. The evaluator injects it into a subprocess and compares `repr(result)` against `repr(expected)`.
-
-#### `tool_call`
-```json
-{
-  "eval_type": "tool_call",
-  "system": "<system prompt describing available tools>",
-  "expected_tool": "tool_name",
-  "expected_args": {"arg1": "expected_value"},
-  "required_args": ["arg1", "arg2"],
-  "max_tokens": 200
-}
-```
-`required_args` is a list of argument names that must be present. `expected_args` is a dict of argument names to expected values; matching is done via case-insensitive substring check (either direction).
-
-#### `contains_all`
-```json
-{
-  "eval_type": "contains_all",
-  "required_facts": ["fact1", "fact2"],
-  "max_tokens": 200
-}
-```
-
-#### `exact`
-```json
-{
-  "eval_type": "exact",
-  "expected_output": "exact answer",
-  "max_tokens": 20
-}
-```
-
-#### `regex`
-```json
-{
-  "eval_type": "regex",
-  "pattern": "\\d{4}-\\d{2}-\\d{2}",
-  "max_tokens": 50
-}
-```
-
----
-
-## Known Issues and Notes
-
-**Thinking mode and 400 errors.** Models that do not support the `think` API parameter return HTTP 400 for every prompt, resulting in 0% scores when running with `--think`. This is a model compatibility issue, not a capability failure. Affected models in testing: `qwen3-coder:30b`, `llama3.2:3b`, `granite4:small-h`. Identify them by looking for `"API error: 400"` in the result JSON's `reason` field.
-
-**Code execution timeout.** Each test case has a 10-second subprocess timeout. Algorithms with exponential complexity (e.g. naive N-Queens for large n) will time out. The tests in this suite are sized to complete within that window.
-
-**Embedding and OCR models.** Models listed in `SKIP_MODELS` are excluded automatically. Add model names to this set in the script if you have additional non-generative models.
-
-**Context window and MCP tests.** The MCP system prompts in v3 and the extreme suite include full JSON tool schemas, consuming 400–700 tokens before the model sees the actual question. Use `--num-ctx 8192` or higher for MCP category tests.
-
-**Temperature.** All requests use `temperature: 0.05` for near-deterministic, reproducible results. This is intentional — benchmarking at higher temperatures adds noise without improving comparability.
-
----
-
-## Result File Format
-
-### JSON (`quality_ctx*_*.json`)
-
-```json
-{
-  "model_name": {
-    "overall": {
-      "pass_rate": 75.0,
-      "tier": "GOOD",
-      "avg_tps": 98.7,
-      "total_passed": 30,
-      "total_tests": 40
-    },
-    "categories": {
-      "extreme_coding": {"pass_rate": 80.0, "passed": 8, "total": 10},
-      "extreme_reasoning": {"pass_rate": 20.0, "passed": 2, "total": 10}
-    },
-    "tests": [
-      {
-        "id": "e_c01",
-        "name": "is_nested_brackets",
-        "category": "extreme_coding",
-        "pass": true,
-        "eval_detail": {"pass": true, "reason": "3/3 test cases passed"},
-        "response": "def is_nested(s):\n    ...",
-        "tps": 98.0,
-        "ttft": 0.12
-      }
-    ]
-  }
-}
-```
-
-### CSV (`quality_ctx*_*.csv`)
-
-One row per model with columns: `rank`, `model`, `tier`, `overall_pct`, `avg_tps`, and one column per category.
-
----
-
-## Hardware and Environment
-
-The benchmark was developed and tested against an Ollama instance at `192.168.0.149:11434` running on a machine with:
-
-- 24 GB VRAM
-- 64 GB RAM
-- ~34 models loaded simultaneously
-
-Update `OLLAMA_HOST` in each script to point to your own Ollama server.
+Each script takes `--host` to override.
