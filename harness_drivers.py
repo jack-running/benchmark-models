@@ -90,6 +90,7 @@ class HarnessRun:
     context_budget: int = -1      # what we told the harness; -1 = left alone
     thinking_level: str = ""      # as the harness resolved it
     compactions: int = 0          # auto-compaction rounds (drops tool output)
+    thinking_parts: int = 0       # reasoning the model emitted anyway
     server_context: int = -1      # context the model was actually loaded with
 
 
@@ -335,6 +336,32 @@ def _thinking_level(events: list) -> str:
     return ""
 
 
+def _count_thinking(events: list) -> int:
+    """Assistant content parts that are model reasoning.
+
+    Distinct from _thinking_level, which only reports the level the harness
+    *asked* for: a model can keep emitting thinking blocks even with
+    --thinking off (observed on qwen3.6-unsloth-vl-agent:27b-112k, where a
+    trivial one-file task still took 598 s). Without this, a report shows
+    "thinking off" next to a run that spent its whole budget reasoning.
+    """
+    n = 0
+    for ev in events:
+        if not isinstance(ev, dict):
+            continue
+        msg = ev.get("message")
+        if ev.get("type") == "message_end" and isinstance(msg, dict) \
+                and msg.get("role") == "assistant":
+            for c in (msg.get("content") or []):
+                if isinstance(c, dict) and c.get("type") == "thinking":
+                    n += 1
+        # opencode reports reasoning tokens instead of parts
+        for usage in _usage_blocks(ev):
+            if isinstance(usage.get("reasoning"), int) and usage["reasoning"] > 0:
+                n += 1
+    return n
+
+
 def _deep_int(obj, key):
     if isinstance(obj, dict):
         if key in obj and isinstance(obj[key], int):
@@ -426,6 +453,7 @@ def _absorb_events(hi: HarnessRun) -> HarnessRun:
     hi.final_text = _final_text_from_events(events)
     hi.prompt_tokens, hi.completion_tokens = _scan_tokens(events)
     hi.compactions = _count_compactions(events)
+    hi.thinking_parts = _count_thinking(events)
     hi.thinking_level = _thinking_level(events)
     return hi
 

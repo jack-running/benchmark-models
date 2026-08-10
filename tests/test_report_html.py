@@ -182,3 +182,17 @@ def test_pre_v2_runs_get_comparability_warning():
     h = _render(_model_report())          # CONFIG has no measurement_version
     assert "Measurement provenance not recorded" in h
     assert "not comparable" in h
+
+
+def test_layer_b_flags_reasoning_parts():
+    lb = {"omp": {"e2e_pass_pow_k": 0.0, "pass_at_1": 0.0,
+                  "native_subset_ppk": 1.0, "transfer_delta": -1.0,
+                  "tasks": {"e02": [{"seed": 1, "passed": False,
+                                     "reason": "timed out", "exit_code": -1,
+                                     "timed_out": True, "wall_seconds": 301.0,
+                                     "budget_s": 300, "compactions": 0,
+                                     "thinking_level": "", "thinking_parts": 7,
+                                     "tool_names": []}]}}}
+    h = _render(_model_report(), extra={"layer_b": {"m": lb}})
+    assert "Reasoning parts" in h
+    assert '<span class=\'bad\'>7</span>' in h or '>7</span>' in h

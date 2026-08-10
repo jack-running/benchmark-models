@@ -183,3 +183,21 @@ def test_scan_tokens_prefers_last_cumulative_block():
         {"type": "step_finish", "part": {"tokens": {"input": 900, "output": 40}}},
     ]
     assert hd._scan_tokens(events) == (900, 40)
+
+
+def test_count_thinking_detects_model_reasoning_despite_level():
+    """--thinking off is a request, not a guarantee: this model kept emitting
+    thinking blocks and a trivial task took 598 s. thinking_level alone would
+    have shown 'off' next to a run that reasoned through its whole budget."""
+    omp_thinking = [{"type": "message_end", "message": {"role": "assistant",
+                     "content": [{"type": "thinking", "thinking": ""},
+                                 {"type": "text", "text": "hi"}]}}]
+    assert hd._count_thinking(omp_thinking) == 1
+    assert hd._thinking_level(omp_thinking) == ""        # nothing requested
+    # opencode reports reasoning tokens rather than parts
+    assert hd._count_thinking(
+        [{"type": "step_finish", "part": {"tokens": {"input": 1, "output": 2,
+                                                     "reasoning": 50}}}]) == 1
+    assert hd._count_thinking(
+        [{"type": "message_end", "message": {"role": "assistant", "content": [
+            {"type": "text", "text": "hi"}]}}]) == 0

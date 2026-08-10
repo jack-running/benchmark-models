@@ -301,6 +301,19 @@ def _rules_table(rules: dict) -> str:
     return f"<table>{head}{rows}</table>"
 
 
+def _thinking_cell(smp: dict) -> str:
+    """Model reasoning actually emitted, regardless of the requested level.
+
+    A run can show "thinking off" and still spend its whole budget reasoning
+    (observed: a trivial one-file task took 598 s on a 27b thinking model), so
+    flag it rather than trusting the requested level.
+    """
+    n = smp.get("thinking_parts")
+    if n is None:
+        return "—"
+    return f'<span class="bad">{e(n)}</span>' if n else e(n)
+
+
 def _layer_b_block(lb_entry: dict) -> str:
     """Layer B summary table + per-harness task tables."""
     head = "<tr><th>Harness</th><th>E2E pass^k</th><th>Pass@1</th>" \
@@ -335,6 +348,7 @@ def _layer_b_block(lb_entry: dict) -> str:
         t_head = ("<tr><th>Task</th><th>Seed</th><th>Pass</th><th>Reason</th>"
                   "<th>Exit</th><th>Timed out</th><th>Wall s</th>"
                   "<th>Budget s</th><th>Compactions</th><th>Thinking</th>"
+                  "<th>Reasoning parts</th>"
                   "<th>Ctx budget</th><th>Loaded ctx</th><th>Answer chars</th>"
                   "<th>Tools</th></tr>")
         t_rows = ""
@@ -360,6 +374,7 @@ def _layer_b_block(lb_entry: dict) -> str:
                     f"<td>{e(smp.get('budget_s') if smp.get('budget_s') is not None else '—')}</td>"
                     f"<td>{comp_s}</td>"
                     f"<td>{e(smp.get('thinking_level') or '—')}</td>"
+                    f"<td>{_thinking_cell(smp)}</td>"
                     f"<td>{e(smp.get('context_budget') if smp.get('context_budget') is not None else '—')}</td>"
                     f"<td>{e(smp.get('server_context') if smp.get('server_context') is not None else '—')}</td>"
                     f"<td>{e(smp.get('final_text_chars') if smp.get('final_text_chars') is not None else '—')}</td>"

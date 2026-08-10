@@ -231,6 +231,7 @@ def run_e2e(host, profile_map, harnesses, k, num_ctx, omp_context=None):
                         "context_budget": hr.context_budget,
                         "thinking_level": hr.thinking_level,
                         "compactions": hr.compactions,
+                        "thinking_parts": hr.thinking_parts,
                         "server_context": harness_drivers.server_context_length(
                             host, model),
                         "final_text_chars": len(hr.final_text or ""),
