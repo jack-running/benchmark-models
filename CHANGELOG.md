@@ -2,9 +2,95 @@
 
 All notable changes to this repository. Format follows
 [Keep a Changelog](https://keepachangelog.com/) conventions;
-the project is pre-1.0, so this tracks a single unnumbered rewrite.
+the project is pre-1.0, so the current series is `0.x.y`.
 
-## [Unreleased] — agentic benchmark rewrite
+## [Unreleased]
+
+HTML reporting for every benchmark, plus a set of Layer B measurement fixes
+that make `transfer_delta` mean what it claims.
+
+### Added
+
+- `report_html.py` — **new.** Canonical dark theme (`BASE_CSS`) plus a
+  self-contained agent-report renderer: no JavaScript, no CDN, native
+  `<details>` for collapsing. `detect_kind()` dispatches on JSON shape and
+  delegates quality/speed to the existing renderers rather than reimplementing
+  them. CLI re-renders artifacts already on disk
+  (`python report_html.py results/*.json`), skipping unparsable inputs with a
+  non-zero exit.
+  The agent report answers "what passed, what failed, why": how-to-read
+  guidance, a measurement-definition card, rankings sorted by the console's own
+  key, the full G0–G5 chain (unreached gates render as *not evaluated*, never as
+  passes), axis bars, a task × seed matrix with the verifier's reason, per-episode
+  failure traces, and Layer B transfer with per-run fairness columns.
+- `benchmark_agent.py`: `--json` now writes an HTML report alongside the JSON;
+  `--html` overrides the path and works without `--json`. New `--omp-context`.
+- Layer B is **printed to the console** (it was computed and silently dropped
+  unless `--json` was passed).
+- `config` now records the measurement definition: `measurement_version`,
+  `e2e_budget_s`, `omp_thinking`, `omp_context`, `harness_runtime_num_ctx`,
+  `system_prompt_scope`, `verifier_policy`.
+- Per-sample Layer B provenance: `budget_s`, `context_budget`, `thinking_level`,
+  `compactions`, `server_context`, `final_text_chars`.
+
+### Changed — Layer B fairness (**breaking for comparisons**)
+
+`measurement_version: 2`. Runs from v0.1.0 are **not comparable** on
+`transfer_delta` or the fabrication/grounding axes.
+
+- **One budget for every harness** (`E2E_BUDGET_S = 300`). Was opencode 120 s
+  vs omp 90 s.
+- **omp's `--max-time` self-cap removed.** It made omp the only harness that
+  stopped its own agent loop at the budget; 30/30 omp runs in the v5 report died
+  at exactly 90.0 s while opencode ran to 398 s.
+- **Budget kills kill the process tree.** `subprocess`'s timeout only kills the
+  direct child; opencode's worker subtree kept running and finishing edits past
+  its nominal budget.
+- **omp thinking pinned to `off`.** `auto` resolved to `high` for a 27b model
+  and consumed the whole budget before the first tool call; Layer A sends no
+  thinking directive.
+- **opencode's client context budget capped to `--num-ctx`** (was the model's
+  full window).
+- **Empty answers no longer pass** the fabrication/grounding verifiers. omp
+  previously scored 5/5 on `g4_fabrication` with zero tool calls, because
+  "no fabricated integer" was true of an empty answer. Affects existing
+  fixtures (v3 seed 1, v4 seed 1, v5 seeds 1 and 4 were vacuous passes).
+
+### Fixed
+
+- **Harness event parsing was opencode-only.** omp's real schema
+  (`tool_execution_start|end`, `message_end.message.content[]`,
+  `message_end.message.usage`) is now parsed, verified against a live
+  `omp --mode json` run: omp token counts went from `(-1, -1)` to real values.
+- `_scan_tool_names` substring-matched tool names against the serialized event,
+  so prose mentioning `finish` counted as a tool call. Now structural.
+- `_scan_tokens` is key-scoped (`usage` / `tokens` blocks), so a tool argument
+  named `input` can no longer be reported as a token count — while still
+  reading opencode's `step_finish.part.tokens`.
+- **Per-run artifact tags.** Every sample's `raw_stdout` pointed at a single
+  overwritten file (tag was model-only), making per-run forensics impossible.
+- `_write_json` creates parent directories (a 49-minute run was lost to
+  `FileNotFoundError`).
+- `benchmark_quality.py`: four unescaped interpolations in `save_html_report`
+  (`eval_detail.reason`, the code-execution `call`/`expected`/`actual`/`reason`
+  cells, and `t['name']`) could corrupt the report, since `actual` is literal
+  model output. Replaced the three ad-hoc `.replace` chains with one `_esc()`.
+- `report_html.py`: the "How to read this report" block was defined but never
+  emitted.
+
+### Verification
+
+- `python -m pytest tests/ -q` → **65 passed** (43 → 65; new coverage for the
+  renderer, escaping, the omp/opencode parsers, the omp context guard, and a
+  real process-tree kill that asserts a grandchild stops).
+- Live `--stage e2e -k 1` on `llama3.2:3b`: opencode and omp both scored
+  `e2e pass^k 0.33`, `delta −0.17`, **0/6 timeouts each** at the shared 300 s
+  budget — the harness gap present in every earlier run disappeared once the
+  budgets were symmetric.
+- Every pre-existing artifact still renders, including ones lacking the new
+  fields.
+
+## [0.1.0] — agentic benchmark rewrite
 
 This branch replaces the single-turn, prose-graded quality + dead agentic
 scorers with a two-layer, gate-first agentic benchmark. Summary of the changes

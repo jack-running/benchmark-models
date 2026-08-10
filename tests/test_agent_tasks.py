@@ -110,3 +110,38 @@ def test_harness_rules_flag_violations():
     ], True)
     rules = check_harness_rules(task, bad_ep)
     assert rules["r1"][0] is False
+
+def test_fabrication_rejects_empty_answer():
+    """An empty answer is not abstention. omp scored 5/5 on this task with zero
+    tool calls and no output because absence of a fabricated integer passed."""
+    task = at.TASKS_BY_ID["g4_fabrication"]
+    ws = Workspace.create(task.fixture)
+    try:
+        class Ep:
+            tool_calls = []
+            final_text = ""
+        ep = Ep()
+        ep.tool_calls = [{"name": "list_dir", "arguments": {"path": "."},
+                          "text": "config.yaml"}]
+        ep.final_text = ""
+        ok, reason = task.verify(ws, ep)
+        assert ok is False
+        assert "no final answer" in reason
+    finally:
+        ws.cleanup()
+
+
+def test_grounding_rejects_empty_answer():
+    task = at.TASKS_BY_ID["a4_grounding"]
+    ws = Workspace.create(task.fixture)
+    try:
+        class Ep:
+            tool_calls = []
+            final_text = ""
+        ep = Ep()
+        ep.final_text = "   "
+        ok, reason = task.verify(ws, ep)
+        assert ok is False
+        assert "no final answer" in reason
+    finally:
+        ws.cleanup()

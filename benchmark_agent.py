@@ -27,6 +27,7 @@ from typing import Optional
 import requests
 
 import ollama_client
+import report_html
 from agent_loop import run_episode
 from agent_tasks import (ALL_TASKS, E2E_TASKS, TASKS_BY_ID,
                          HARNESS_SYSTEM_PROMPT, check_harness_rules)
@@ -170,23 +171,28 @@ def _rules_report(episodes, task_by_id):
 # Layer B
 # ─────────────────────────────────────────────────────────────
 
-def make_driver(name: str):
+def make_driver(name: str, num_ctx=None, omp_context=None):
     for cls in (harness_drivers.OpenCodeDriver, harness_drivers.OmpDriver,
                 harness_drivers.ClineDriver):
         if cls.name == name:
-            d = cls()
+            kwargs = {"num_ctx": num_ctx}
+            if cls is harness_drivers.OmpDriver:
+                # Separate knob on purpose: omp's window is coupled to a
+                # non-overridable output reserve, so num_ctx must not set it.
+                kwargs["omp_context"] = omp_context
+            d = cls(**kwargs)
             return d if d.available()[0] else None
     return None
 
 
-def run_e2e(host, profile_map, harnesses, k, num_ctx):
+def run_e2e(host, profile_map, harnesses, k, num_ctx, omp_context=None):
     """Layer B per model: {harness: {task_id: [samples]}}."""
     out = {}
     for model, prof in profile_map.items():
         print(f"\n  Layer B e2e → {model}")
         out[model] = {}
         for hname in harnesses:
-            driver = make_driver(hname)
+            driver = make_driver(hname, num_ctx, omp_context)
             if driver is None:
                 print(f"    {hname}: unavailable, skipped")
                 out[model][hname] = {"unavailable": True}
@@ -204,8 +210,10 @@ def run_e2e(host, profile_map, harnesses, k, num_ctx):
                                         "passed": False, "reason": "prepare failed"})
                         ws.cleanup()
                         continue
-                    budget = harness_drivers.HARNESS_TIMEOUTS.get(hname, 120)
-                    hr = driver.run(ws, model, tsk.user_prompt, budget)
+                    budget = harness_drivers.HARNESS_TIMEOUTS.get(
+                        hname, harness_drivers.E2E_BUDGET_S)
+                    hr = driver.run(ws, model, tsk.user_prompt, budget,
+                                    run_tag=f"{tsk.id}_s{seed}")
                     ok, reason = tsk.verify(ws, hr)
                     samples.append({
                         "seed": seed, "passed": ok, "reason": reason,
@@ -216,6 +224,16 @@ def run_e2e(host, profile_map, harnesses, k, num_ctx):
                         "completion_tokens": hr.completion_tokens,
                         "stdout_events": len(hr.stdout_events),
                         "raw_stdout": hr.raw_stdout_path,
+                        # Provenance: a transfer_delta is uninterpretable
+                        # without the budget/context/thinking it was measured
+                        # under, and compaction silently drops tool output.
+                        "budget_s": hr.budget_s,
+                        "context_budget": hr.context_budget,
+                        "thinking_level": hr.thinking_level,
+                        "compactions": hr.compactions,
+                        "server_context": harness_drivers.server_context_length(
+                            host, model),
+                        "final_text_chars": len(hr.final_text or ""),
                     })
                     ws.cleanup()
                 out[model][hname]["tasks"][tsk.id] = samples
@@ -259,8 +277,27 @@ def native_e2e_subset_ppk(episodes, task_by_id) -> float:
 # ─────────────────────────────────────────────────────────────
 
 def _write_json(path, root):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps(root, indent=2), encoding="utf-8")
     print(f"\nJSON → {path}")
+
+
+def _write_outputs(root, out_json, out_html):
+    """Write the JSON (if requested) and always the HTML sidecar.
+
+    Mirrors the json+html triplet benchmark_ollama.py already writes: --json
+    implies an .html next to it, --html overrides the path, --html alone works
+    without --json.
+    """
+    if out_json:
+        _write_json(out_json, root)
+    path = out_html or (str(Path(out_json).with_suffix(".html")) if out_json else None)
+    if not path:
+        return
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(report_html.render_agent_report(root, path),
+                          encoding="utf-8")
+    print(f"📊  HTML report → {path}")
 
 
 def print_summary(reports):
@@ -294,9 +331,15 @@ def main():
     p.add_argument("--harness", action="append", choices=["opencode", "omp", "cline"])
     p.add_argument("-k", "--samples", type=int, default=5)
     p.add_argument("--max-steps", type=int, default=12)
+    p.add_argument("--omp-context", dest="omp_context", type=int, default=None,
+                   help="pin omp's context budget (OLLAMA_CONTEXT_LENGTH). "
+                        "Must exceed omp's 32768 output reserve by at least "
+                        "8192 or the driver refuses it; leave unset to use "
+                        "omp's discovered window.")
     p.add_argument("--wall-budget", type=int, default=300)
     p.add_argument("--num-ctx", type=int, default=32768)
     p.add_argument("--json", dest="out_json")
+    p.add_argument("--html", dest="out_html")
     p.add_argument("--include-cloud", action="store_true")
     p.add_argument("--temperature", type=float, default=TEMPERATURE)
     args = p.parse_args()
@@ -371,12 +414,12 @@ def main():
             if not ok:
                 native_pool.pop(m, None)
         print("\nsmoke stage complete")
-        if args.out_json:
+        if args.out_json or args.out_html:
             root = {"config": {"stage": "smoke", "ollama_version": ollama_version,
                                "host": host, "task_suite_sha256": suite_sha256()},
                     "models": {m: {"smoke_probe": ep_to_json(smoke_eps[m])}
                                for m in smoke_eps}}
-            _write_json(args.out_json, root)
+            _write_outputs(root, args.out_json, args.out_html)
         return
 
     # ── native ───────────────────────────────────────────────
@@ -400,6 +443,26 @@ def main():
             "task_suite_sha256": suite_sha256(),
             "harness_versions": harness_drivers.harness_versions(),
             "stage": "native",
+            # ── measurement definition ────────────────────────────────
+            # Recorded so runs are never silently compared across a
+            # definition change. Bump measurement_version when any of these
+            # change meaning.
+            "measurement_version": 2,
+            "e2e_budget_s": harness_drivers.E2E_BUDGET_S,
+            "omp_thinking": harness_drivers.OMP_THINKING,
+            "omp_context": args.omp_context,
+            # Layer A sends num_ctx explicitly; no harness can set Ollama's
+            # runtime num_ctx (both speak an OpenAI-compatible API), so the
+            # harness context is the model default. Recorded per sample as
+            # server_context; transfer_delta carries this caveat.
+            "harness_runtime_num_ctx": "model-default (not settable)",
+            # G3_terminates / R2 and the grounding+fabrication verifiers
+            # require a final answer, but HARNESS_SYSTEM_PROMPT is applied
+            # only on the instruction axis — i.e. spontaneous termination is
+            # what is being measured on the other 6 axes. Unchanged here;
+            # flipping it would make G3/R2 trivially passable.
+            "system_prompt_scope": "instruction_axis_only",
+            "verifier_policy": "require_final_answer",
         },
         "models": reports,
     }
@@ -415,7 +478,7 @@ def main():
         e2e_pool = {m: reports[m] for m in native_pool}
         e2e_out = run_e2e(host, {m: prof for m, prof in native_pool.items()
                                  if m in e2e_pool}, available, args.samples,
-                          args.num_ctx)
+                          args.num_ctx, args.omp_context)
         root["layer_b"] = {}
         for m, hmap in e2e_out.items():
             root["layer_b"][m] = {}
@@ -432,10 +495,23 @@ def main():
                     "native_subset_ppk": native_ppk,
                     "tasks": d["tasks"],
                 }
+
+        # Layer B summary: terminal-only runs never saw these numbers before.
+        print("\n  Layer B transfer (e2e subset)")
+        print(f"{'model':<30} {'harness':<12} {'e2e pass^k':>10} "
+              f"{'native':>8} {'delta':>7}")
+        for m, hmap in root["layer_b"].items():
+            for hname, d in hmap.items():
+                if isinstance(d, dict) and d.get("unavailable"):
+                    print(f"{m:<30} {hname:<12} {'unavailable':>10}")
+                else:
+                    print(f"{m:<30} {hname:<12} {d['e2e_pass_pow_k']:>10.2f} "
+                          f"{d['native_subset_ppk']:>8.2f} "
+                          f"{d['transfer_delta']:>+7.2f}")
         root["config"]["stage"] = "e2e"
 
-    if args.out_json:
-        _write_json(args.out_json, root)
+    if args.out_json or args.out_html:
+        _write_outputs(root, args.out_json, args.out_html)
 
 
 if __name__ == "__main__":

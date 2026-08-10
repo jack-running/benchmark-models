@@ -29,9 +29,10 @@ pinned secondary host. Deps: `requests` only. Python 3.10+.
 | `agent_tasks.py` | 19 tasks (fixtures + end-state verifiers), grounding corpus (~60k tokens), `HARNESS_SYSTEM_PROMPT` (~7.5–8.5k tokens, measured) |
 | `harness_drivers.py` | Layer B: `OpenCodeDriver` / `OmpDriver` / `ClineDriver` / `NativeDriver` |
 | `gates.py` | G0–G5 evaluation, tier verdicts, reliability (pass@1, pass^k, Wilson CI) |
-| `benchmark_agent.py` | CLI: `--stage probe|smoke|native|e2e`, `--models`, `-k`, `--harness`, `--json` |
+| `benchmark_agent.py` | CLI: `--stage probe\|smoke\|native\|e2e`, `--models`, `-k`, `--harness`, `--json`, `--html`, `--omp-context` |
 | `benchmark_quality.py` | correctness suite runner (default suite `test_suite_v3.json`) |
 | `benchmark_ollama.py` | speed benchmark (TTFT/TPS) |
+| `report_html.py` | shared theme (`BASE_CSS`) + agent report renderer + `detect_kind` dispatch; CLI re-renders existing result JSON |
 
 ## Hard rules to preserve
 
@@ -55,6 +56,45 @@ pinned secondary host. Deps: `requests` only. Python 3.10+.
   (see `harness_drivers._run_proc`).
 - `SKIP_MODELS = {"qwen3-embedding:8b", "deepseek-ocr:latest"}` — never run
   these (non-generative).
+- **Layer B must be measured fairly, or the delta is meaningless.** All
+  harnesses share one budget (`harness_drivers.E2E_BUDGET_S`); no harness may
+  get an *internal* self-cap that the others don't (omp's `--max-time` was
+  removed for exactly this reason). A budget kill must kill the **process
+  tree** — `subprocess`'s own timeout only kills the direct child, and the
+  surviving worker subtree let opencode work for 398 s on a 120 s budget.
+- **omp thinking is pinned** (`OMP_THINKING = "off"`): `auto` resolved to
+  `high` on a 27b model and consumed the whole budget before the first tool
+  call, while Layer A sends no thinking directive.
+- **Never set omp's context from `num_ctx`.** omp couples its window to a
+  32768 output reserve that its config surface does not let you lower, so
+  `window == 32768` leaves zero input budget and triggers a compaction loop
+  that silently discards tool output. Only the explicit `--omp-context` knob
+  may move it, and `OmpDriver._safe_window` refuses anything that doesn't
+  clear the reserve by `OMP_MIN_INPUT_BUDGET`.
+- **No harness can set Ollama's runtime `num_ctx`** (both speak an
+  OpenAI-compatible API). The harness phase therefore runs at the model's
+  default window while Layer A runs at `--num-ctx`; record the truth via
+  `server_context_length()` rather than claiming they match.
+- **An empty answer is not abstention.** The grounding and fabrication
+  verifiers require non-empty `final_text`; otherwise a killed or silent
+  harness scores a free pass (omp once scored 5/5 on `g4_fabrication` with
+  zero tool calls).
+- **Parse harness events structurally, per schema.** opencode emits
+  `part.tool` / `part.type == "text"` / `step_finish.part.tokens`; omp emits
+  `tool_execution_start|end` / `message_end.message.content[]` /
+  `message_end.message.usage`. Never substring-match tool names against a
+  serialized event — prose mentioning `finish` counted as a call.
+- **Per-run artifact tags.** `_run_proc`'s tag must include task+seed, or every
+  sample's `raw_stdout` points at one overwritten file.
+- **Record the measurement definition** in `config` (`measurement_version`,
+  `e2e_budget_s`, `omp_thinking`, `verifier_policy`, `system_prompt_scope`).
+  Changing what a metric means requires bumping `measurement_version` so old
+  and new runs are never silently compared.
+- **`HARNESS_SYSTEM_PROMPT` is applied on the instruction axis only**
+  (`benchmark_agent.py`), so the other 6 axes measure *spontaneous*
+  termination. Applying it everywhere would make G3/R2 trivially passable and
+  break comparability — treat that as a measurement-definition change, not a
+  bug fix.
 
 ## Running
 
@@ -63,9 +103,11 @@ python benchmark_agent.py --stage probe                          # fleet filter 
 python benchmark_agent.py --stage smoke --models <m>             # G1 drop
 python benchmark_agent.py --stage native --models qwen3-coder:30b -k 3   # 57 episodes
 python benchmark_agent.py --stage e2e --harness opencode --harness omp --models <m> -k 3
+python benchmark_agent.py --stage e2e --models <m> -k 5 --json results/run.json  # + run.html
+python report_html.py results/*.json                            # re-render existing artifacts
 python benchmark_quality.py --suite test_suite_v3.json --seed 42
 python benchmark_ollama.py --quick
-python -m pytest tests/ -q                                      # offline self-tests (V1)
+python -m pytest tests/ -q                                      # offline self-tests
 ```
 
 ## Conventions
@@ -77,9 +119,10 @@ python -m pytest tests/ -q                                      # offline self-t
   verdict. The 6 E2E task ids are `c1_add_function`, `c2_fix_failing_test`,
   `e02`, `e03`, `g4_fabrication`, `a5_recovery`.
 - JSON output: `results/` (git-ignored; regenerable) with a `config` header
-  (host, ollama version, suite sha, harness versions) so runs are
-  reproducible. Run verdicts are only persisted when you pass `--json` —
-  including Layer B, which is **not** printed to the console.
+  (host, ollama version, suite sha, harness versions, and the measurement
+  definition) so runs are reproducible. `--json` also writes an HTML report
+  next to the JSON; `--html` overrides that path and works on its own. Layer B
+  is printed to the console as well as persisted.
 - Determinism: temperature 0.0 + explicit `seed` for quality; seeded task
   sampling for the agentic loop.
 - `benchmark_quality.py` `--think` is capability-gated via `probe_model`

@@ -8,12 +8,14 @@ independent tools, each answering a different question:
 | `benchmark_agent.py` | **Can the model drive a coding agent?** | Hermetic Layer A tool-loop + real Layer B harnesses (`opencode` / `omp` / `cline`), gate-first verdicts |
 | `benchmark_quality.py` | **Are the answers correct?** | Deterministic, machine-verifiable correctness tests (execution, numeric, tool-call JSON, facts) |
 | `benchmark_ollama.py` | **How fast is inference?** | Throughput/latency only (TTFT, TPS) |
+| `report_html.py` | **What passed, what failed, and why?** | Renders any result JSON as a self-contained dark-themed HTML report (no JS, no CDN) |
 
-The three are complementary: `benchmark_ollama.py` measures *speed*,
+The three benchmarks are complementary: `benchmark_ollama.py` measures *speed*,
 `benchmark_quality.py` measures *single-turn correctness*, and
 `benchmark_agent.py` measures the *end-to-end agentic ability* — whether a
 model can hold a multi-step tool loop over real code, and whether that
 ability transfers to the actual CLI harnesses you would ship.
+`report_html.py` turns any of their JSON outputs into a readable report.
 
 Requirements: Python 3.10+, `pip install requests`, and a reachable Ollama
 server (default `http://192.168.0.149:11434`). Layer B additionally needs the
@@ -21,7 +23,8 @@ harness binaries on `PATH`: `opencode`, `omp`, and/or `cline` (the last is
 only present if you install it).
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the full history of this rewrite.
-Benchmark run output is written to `results/` (git-ignored) via `--json`.
+Benchmark run output is written to `results/` (git-ignored) via `--json`, with
+an HTML report written alongside it automatically.
 
 ---
 
@@ -108,8 +111,47 @@ The 6 E2E tasks (Layer B subset) are `c1_add_function`, `c2_fix_failing_test`,
 `g4_fabrication`, and `a5_recovery` — the same 6 are run per selected harness
 in Layer B.
 
-`--json results/candidate.json` writes the full report (gates, per-task pass,
-reliability, per-harness Layer B transfer delta).
+### Output
+
+| Flag | Effect |
+|---|---|
+| `--json results/run.json` | full report (gates, per-task pass, reliability, Layer B transfer) **and** `results/run.html` alongside it |
+| `--html path.html` | override the HTML path; works with or without `--json` |
+| `--omp-context N` | pin omp's context budget (see the caveat below); refused if it doesn't clear omp's 32768 output reserve by 8192 |
+
+Layer B is also summarised on the console now (it used to be computed and
+silently dropped unless `--json` was passed).
+
+### Reading a Layer B `transfer_delta` honestly
+
+`transfer_delta` = harness `pass^k` − native `pass^k` on the same 6 tasks. It
+is only a *harness* effect when the run was fair, so every sample records the
+conditions it was measured under:
+
+- **Budget.** All harnesses get the same wall budget
+  (`harness_drivers.E2E_BUDGET_S`, 300 s) and a killed run kills the whole
+  process tree. Previously opencode got 120 s while omp got 90 s *plus* its own
+  `--max-time` self-cap, and opencode's worker subtree survived the kill — so
+  omp lost on budget, not capability. A `timed_out` sample never finished:
+  read it as "no verdict", not "failed".
+- **Thinking.** omp resolves thinking from `auto`, which picked `high` for a
+  27b reasoning model and burned the entire budget before the first tool call.
+  It is now pinned to `off` (`harness_drivers.OMP_THINKING`) to match Layer A,
+  which sends no thinking directive.
+- **Context.** Neither harness can set Ollama's runtime `num_ctx` — both speak
+  an OpenAI-compatible API — so the harness phase runs at the model's **default
+  window** while Layer A runs at `--num-ctx`. opencode's *client-side* budget is
+  capped to `--num-ctx`; omp's is left alone by default because its window is
+  coupled to a non-overridable 32768 output reserve (pinning the window to
+  32768 leaves zero input budget and sends omp into a compaction loop that
+  discards tool output). The window actually loaded is recorded per sample as
+  `server_context`.
+- **Compaction.** `compactions > 0` means the harness dropped earlier context,
+  frequently the tool output the task depended on.
+
+`config.measurement_version` records this definition. **Runs with different
+measurement versions are not comparable** on `transfer_delta` or on the
+fabrication/grounding axes.
 
 ---
 
@@ -168,6 +210,60 @@ python benchmark_ollama.py --models qwen3.5:9b deepseek-r1:32b
 ```
 
 Tiers are TPS-only: EXCELLENT ≥30, GOOD ≥15, ADEQUATE ≥8, MARGINAL ≥3, POOR <3.
+
+---
+
+## 4. `report_html.py` — HTML reports
+
+Turns any benchmark result JSON into a **single self-contained HTML file**:
+inline CSS, no JavaScript, no CDN, no external assets. Collapsible sections use
+native `<details>`, so the file works offline, prints, and survives being
+emailed.
+
+```bash
+# render existing results (one command, many files; shell glob works)
+python report_html.py results/*.json
+
+# explicit output path (single input only)
+python report_html.py -o report.html results/v5_e2e.json
+```
+
+The input shape is auto-detected, so the same command handles all three
+benchmarks:
+
+| Detected kind | Condition | Renderer |
+|---|---|---|
+| `agent` | top level has `config` + `models` | full agent report (below) |
+| `quality` | every value has `tests` | delegates to `benchmark_quality.save_html_report` |
+| `speed` | every value has `overall` | delegates to `benchmark_ollama.save_html_report` |
+
+A file that fails to parse prints `⚠️  skipped …` and the batch continues;
+the exit code is `1` if anything was skipped.
+
+The **agent** report answers "what passed, what failed, and why" without
+opening the JSON:
+
+- *How to read this report* — tier meaning, gate-chain semantics,
+  `pass@1` vs `pass^k`, what each axis probes, and when a `transfer_delta` is
+  **not** a harness effect.
+- *Measurement definition* card — budget, thinking level, context handling,
+  verifier policy, `measurement_version`. Pre-v2 artifacts render an explicit
+  "not comparable" warning instead.
+- *Rankings* — sorted by the same key the console uses, so report and terminal
+  always agree.
+- *Per model* — verdict, the full G0–G5 chain (gates the run never reached are
+  shown as *not evaluated*, never as passes), axis bars, and a
+  **task × seed matrix** with the verifier's reason for the lowest failing seed.
+- *Failure details* — per failing episode: budget/termination facts, the tool
+  call trace with arguments and output, and the final text. Passing episodes
+  stay in a compact collapsed table so the file doesn't balloon.
+- *Layer B* — per-harness transfer with a signed delta, plus per-run
+  `timed out` / `compactions` / `thinking` / `ctx budget` / `loaded ctx` /
+  `answer chars` so an unfair run is visible at a glance.
+
+Both the agent benchmark and the two older benchmarks write their HTML
+automatically at run time; `report_html.py` exists to re-render artifacts you
+already have (for example after a report improvement).
 
 ---
 
