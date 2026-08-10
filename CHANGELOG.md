@@ -6,6 +6,8 @@ the project is pre-1.0, so the current series is `0.x.y`.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-08-10 — HTML reports + fair Layer B measurement
+
 HTML reporting for every benchmark, plus a set of Layer B measurement fixes
 that make `transfer_delta` mean what it claims.
 
@@ -77,18 +79,51 @@ that make `transfer_delta` mean what it claims.
   model output. Replaced the three ad-hoc `.replace` chains with one `_esc()`.
 - `report_html.py`: the "How to read this report" block was defined but never
   emitted.
+- **`thinking_level` was misleading.** It records the level the harness was
+  *asked* for; with `--thinking off` omp emits no level-change event, so every
+  sample read `''` while the model kept emitting thinking blocks. Added
+  `thinking_parts` (assistant reasoning parts for omp, non-zero reasoning
+  tokens for opencode), rendered as a flagged *Reasoning parts* column.
 
 ### Verification
 
-- `python -m pytest tests/ -q` → **65 passed** (43 → 65; new coverage for the
-  renderer, escaping, the omp/opencode parsers, the omp context guard, and a
-  real process-tree kill that asserts a grandchild stops).
-- Live `--stage e2e -k 1` on `llama3.2:3b`: opencode and omp both scored
-  `e2e pass^k 0.33`, `delta −0.17`, **0/6 timeouts each** at the shared 300 s
-  budget — the harness gap present in every earlier run disappeared once the
-  budgets were symmetric.
+- `python -m pytest tests/ -q` → **67 passed** (43 → 67; new coverage for the
+  renderer, escaping, the omp/opencode parsers, the omp context guard, the
+  thinking detector, and a real process-tree kill that asserts a grandchild
+  stops).
 - Every pre-existing artifact still renders, including ones lacking the new
   fields.
+
+#### Layer B, measured across four k=5 runs
+
+| run | model | harness | pass^k | delta | timeouts |
+|---|---|---|---|---|---|
+| v5 (pre-v2) | vl-agent 27b | opencode / omp | 1.00 / 0.33 | +0.00 / −0.67 | 16/30 / **30/30** |
+| v7 (v2) | vl-agent 27b | opencode / omp | 0.83 / 0.17 | +0.00 / −0.67 | 5/30 / **30/30** |
+| v8 (v2) | coder 30b | opencode / omp | 1.00 / 0.50 | +0.17 / −0.33 | 0/30 / 0/30 |
+| v9 (v2) | vl-agent 27b, `--omp-context 65536` | omp | 0.17 | −0.67 | 29/30 |
+
+What the fixes established, and what they did **not**:
+
+- **The budget fix works** where the model is fast enough to use it: a `k=1`
+  run on `llama3.2:3b` put opencode and omp at an identical `0.33 / −0.17`
+  with 0/6 timeouts each, and the v8 control ran 0/30 timeouts on both.
+- **Budget was not the whole story for the 27b model.** Raising 90 s → 300 s
+  left omp at 30/30 timeouts and `−0.67` unchanged. Root cause measured
+  directly: a *trivial* one-file task through omp on that model takes
+  **598 s** (exit 0, tool call succeeded), because the model keeps emitting
+  reasoning even with `--thinking off`. This is a harness × model throughput
+  interaction, not the asymmetry that was fixed.
+- **The context hypothesis was tested and rejected.** v9 pinned omp's window
+  to 65536: `pass^k` 0.17 → 0.17, timeouts 30/30 → 29/30, and `server_context`
+  stayed at 112000 — confirming `OLLAMA_CONTEXT_LENGTH` moves omp's budgeting
+  but not the window Ollama loads.
+- **A genuine omp transfer gap remains, separate from all of the above.** On
+  the v8 control (0/30 timeouts, no compaction, no reasoning) omp still lost
+  `−0.33`: it fails the exact-content edit tasks (`e02` 1/5, `e03` 2/5,
+  `a5_recovery` 4/5) where opencode passes 5/5, with
+  `src/string_utils.py differs from expected content`. That is an edit-fidelity
+  difference and the one real harness issue the instrumentation now isolates.
 
 ## [0.1.0] — agentic benchmark rewrite
 

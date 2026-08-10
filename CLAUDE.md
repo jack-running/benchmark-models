@@ -62,9 +62,13 @@ pinned secondary host. Deps: `requests` only. Python 3.10+.
   removed for exactly this reason). A budget kill must kill the **process
   tree** — `subprocess`'s own timeout only kills the direct child, and the
   surviving worker subtree let opencode work for 398 s on a 120 s budget.
-- **omp thinking is pinned** (`OMP_THINKING = "off"`): `auto` resolved to
-  `high` on a 27b model and consumed the whole budget before the first tool
-  call, while Layer A sends no thinking directive.
+- **omp thinking is requested, not guaranteed** (`OMP_THINKING = "off"`):
+  `auto` resolved to `high` on a 27b model and consumed the whole budget
+  before the first tool call, while Layer A sends no thinking directive.
+  Measured caveat: a thinking model keeps emitting reasoning even with `off`,
+  so `thinking_level` records what was *asked* and `thinking_parts` records
+  what the model actually produced. Never read `thinking_level` alone as proof
+  that a run did not reason.
 - **Never set omp's context from `num_ctx`.** omp couples its window to a
   32768 output reserve that its config surface does not let you lower, so
   `window == 32768` leaves zero input budget and triggers a compaction loop

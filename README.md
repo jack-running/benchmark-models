@@ -136,8 +136,11 @@ conditions it was measured under:
   read it as "no verdict", not "failed".
 - **Thinking.** omp resolves thinking from `auto`, which picked `high` for a
   27b reasoning model and burned the entire budget before the first tool call.
-  It is now pinned to `off` (`harness_drivers.OMP_THINKING`) to match Layer A,
-  which sends no thinking directive.
+  It is now *requested* as `off` (`harness_drivers.OMP_THINKING`) to match
+  Layer A, which sends no thinking directive. **A request is not a guarantee:**
+  a thinking model may keep emitting reasoning anyway, so each sample also
+  records `thinking_parts` — the reasoning the model actually produced. Trust
+  that column over `thinking_level`.
 - **Context.** Neither harness can set Ollama's runtime `num_ctx` — both speak
   an OpenAI-compatible API — so the harness phase runs at the model's **default
   window** while Layer A runs at `--num-ctx`. opencode's *client-side* budget is
@@ -146,8 +149,16 @@ conditions it was measured under:
   32768 leaves zero input budget and sends omp into a compaction loop that
   discards tool output). The window actually loaded is recorded per sample as
   `server_context`.
+  Measured: `--omp-context 65536` moved omp's *budgeting* but left
+  `server_context` at 112000 and changed the outcome not at all
+  (`pass^k` 0.17 → 0.17), so context is usually **not** the binding constraint —
+  check `timed_out` and `thinking_parts` first.
 - **Compaction.** `compactions > 0` means the harness dropped earlier context,
   frequently the tool output the task depended on.
+- **Throughput.** A harness can simply be too slow for a given model. Measured:
+  a trivial one-file task through omp on `qwen3.6-unsloth-vl-agent:27b-112k`
+  took **598 s**, so no task finished inside a 300 s budget (30/30 timeouts)
+  while opencode completed the same tasks in 45–300 s.
 
 `config.measurement_version` records this definition. **Runs with different
 measurement versions are not comparable** on `transfer_delta` or on the
