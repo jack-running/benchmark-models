@@ -19,6 +19,7 @@ Usage examples:
 """
 
 import json
+import html
 import time
 import requests
 import re
@@ -732,6 +733,11 @@ def console_summary(results: dict, categories: list[str]):
 # HTML REPORT
 # ─────────────────────────────────────────────────────────────
 
+def _esc(v):
+    """Escape dynamic HTML content (model output flows into these cells)."""
+    return html.escape("" if v is None else str(v))
+
+
 def save_html_report(results: dict, categories: list[str], num_ctx: int, path: str,
                      think: bool = False):
     ranked = sorted(
@@ -781,8 +787,8 @@ def save_html_report(results: dict, categories: list[str], num_ctx: int, path: s
             icon  = "✅" if t["pass"] else "❌"
             score = f"{t['score']*100:.0f}%"
             ev    = t["eval_detail"]
-            reason = (ev.get("reason") or "")[:100]
-            resp_esc = (t.get("response") or "")[:400].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            reason = _esc((ev.get("reason") or "")[:100])
+            resp_esc = _esc((t.get("response") or "")[:400])
 
             extra = ""
 
@@ -793,13 +799,13 @@ def save_html_report(results: dict, categories: list[str], num_ctx: int, path: s
                     ri = "✅" if r["pass"] else "❌"
                     tc_rows += (
                         f"<tr>"
-                        f"<td><code>{r.get('call','')}</code></td>"
-                        f"<td><code>{r.get('expected','')}</code></td>"
-                        f"<td><code>{r.get('actual') or ''}</code></td>"
-                        f"<td>{ri} {r.get('reason','')[:60]}</td>"
+                        f"<td><code>{_esc(r.get('call',''))}</code></td>"
+                        f"<td><code>{_esc(r.get('expected',''))}</code></td>"
+                        f"<td><code>{_esc(r.get('actual') or '')}</code></td>"
+                        f"<td>{ri} {_esc(r.get('reason','')[:60])}</td>"
                         f"</tr>"
                     )
-                code_esc = (ev.get("extracted_code") or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+                code_esc = _esc(ev.get("extracted_code") or "")
                 extra = (
                     f"<details><summary>Test cases &amp; extracted code</summary>"
                     f"<table style='font-size:0.8em'>"
@@ -813,14 +819,14 @@ def save_html_report(results: dict, categories: list[str], num_ctx: int, path: s
             elif t["eval_type"] == "tool_call":
                 parsed = ev.get("parsed")
                 if parsed:
-                    p_esc = json.dumps(parsed, indent=2).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+                    p_esc = _esc(json.dumps(parsed, indent=2))
                     extra = f"<details><summary>Parsed JSON</summary><pre>{p_esc}</pre></details>"
 
             test_rows += (
                 f"<tr>"
                 f"<td style='font-size:1.2em'>{icon}</td>"
                 f"<td><small style='color:#8b949e'>{t['category']}</small></td>"
-                f"<td><strong>{t['name']}</strong>"
+                f"<td><strong>{_esc(t['name'])}</strong>"
                 f"  <small style='color:#8b949e'>[{t['eval_type']}] [{t.get('difficulty','')}]</small><br>"
                 f"  {reason}<br>{extra}</td>"
                 f"<td style='text-align:center'>{score}</td>"
