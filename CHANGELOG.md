@@ -6,6 +6,65 @@ the project is pre-1.0, so the current series is `0.x.y`.
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-08-11 — gates stop failing on evidence a run never collected
+
+Every axis-filtered run reported
+`BLOCKED at G1_emits_tool_call: probe produced no tool calls`, for every
+model — including cloud models that were calling tools successfully on every
+task in scope.
+
+### Fixed
+
+- **G1 threw away its own evidence.** The probe episode is produced by the
+  smoke stage (`smoke_eps`), which runs for every model in every stage, but
+  only `episodes` from the native pool reached `evaluate_gates`. `--axes`
+  filters the task pool, `g1_probe_read` sits on the `probe` axis, so the
+  probe set was empty and `any([])` read as "emitted no tool calls". The
+  smoke probe is now passed to the gate (`probe_episodes=`) and stored in the
+  report as `smoke_probe`, so G1 is decided on the measurement that was
+  actually taken. Confirmed across every artifact on disk: all six 19-task
+  runs had `probe_ran=True, G1=True`; all four filtered runs had
+  `probe_ran=False, G1=False`.
+- **The same empty-evidence bug in the rest of the chain.** G4 failed with
+  "no fabrication episodes" whenever the fabrication axis was out of scope,
+  and G2's reason string divided by a zero call count (`ZeroDivisionError`,
+  reachable as soon as G1 could pass on probe evidence alone). A gate without
+  evidence is now `passed: None` — **not evaluated** — the chain continues
+  past it, and the ids are listed in the report's `unevaluated_gates`.
+- **`native_pool` gave every model the same profile.** The dict comprehension
+  bound `prof` from the *previous* loop's leaked variable, so every entry
+  carried the last-probed model's profile — and that profile is what
+  `run_e2e` hands to `driver.prepare()`. Only visible on multi-model runs.
+
+### Changed
+
+- A run with an unevaluated gate can no longer be certified `HARNESS_READY`;
+  the strongest honest verdict is `SUPERVISED`, since the gate was skipped,
+  not passed (`gates.tier_for(..., unevaluated=[...])`).
+- `GateResult.verdict` distinguishes `NOT EVALUATED` from `BLOCKED`; the HTML
+  gate chain renders a skipped gate as *not evaluated* with its reason instead
+  of a ✗, and the verdict card names the scope limit. The console prints
+  `(not evaluated: G4_no_fabrication)` where it used to print a gate id.
+- `config.axes` records which axes ran, so a missing gate or axis is legible
+  as a scope fact. **`measurement_version` is deliberately not bumped:**
+  `pass@1`, `pass^k` and `transfer_delta` are unchanged by this release — only
+  verdicts that were previously fabricated from absent evidence change.
+
+### Verification
+
+- `python -m pytest tests/ -q` → **78 passed** (67 → 78; 11 new tests covering
+  probe-sourced G1, the axis-filtered fallback, out-of-scope G2/G3/G4/G5, the
+  tier cap, `verdict` semantics, and the renderer).
+- Live, `--axes completion -k 1`, the exact shape that used to fail:
+  - `minimax-m3:cloud` (previously `BLOCKED at G1`): G1 passes on probe
+    evidence, G2 `60/60` calls valid, and the run blocks at **G3** because
+    `c1_add_function` hit the 10-step budget without calling `finish` — a real
+    measured failure.
+  - `llama3.2:3b`: G1–G3 pass, G4 **not evaluated** (out of scope), blocked at
+    **G5** on 2 genuine path escapes in `c2_fix_failing_test`.
+- `python report_html.py results/*.json` re-renders all 13 existing artifacts,
+  including pre-fix ones.
+
 ## [0.3.0] — 2026-08-11 — omp Layer B actually runs (stdin fix + provider config)
 
 omp's Layer B result was an artifact of the runner, not of the model. Fixing

@@ -80,10 +80,27 @@ Gates run in order on Layer A. A model is elevated to a tier only if
 ### Tiers (after gates)
 
 - `HARNESS_READY` — all gates pass, overall `pass^k ≥ 0.80`, `edit ≥ 0.80`,
-  `instruction ≥ 0.70`.
+  `instruction ≥ 0.70`, and **no gate was left unevaluated** (see below).
 - `SUPERVISED` — passes all gates but misses one reliability bar.
 - `NOT_RECOMMENDED` / `BLOCKED` — the model fails a gate; a **reason** is
   always reported (`failed_gate`), never a 0-score.
+
+### Gates and run scope
+
+A gate needs its task in the run. `--axes completion` runs no fabrication
+task, so G4 has nothing to judge; `g1_probe_read` sits on the `probe` axis and
+is filtered out the same way. Such a gate is reported as **not evaluated**
+(`passed: null`, and its id is listed in `unevaluated_gates`) — never as a
+failure — and a run holding any unevaluated gate cannot be certified
+`HARNESS_READY`, because that gate was skipped, not passed. The axes a run
+covered are recorded in `config.axes`.
+
+G1 is the exception that always has evidence: the smoke stage runs the probe
+episode for every model regardless of `--axes`, and that episode is stored in
+the report as `smoke_probe` and handed to the gate. (Until 0.3.1 it was
+discarded, so every axis-filtered run reported
+`BLOCKED at G1_emits_tool_call: probe produced no tool calls` for models that
+were calling tools successfully on every task in scope.)
 
 ### Reliability profile
 

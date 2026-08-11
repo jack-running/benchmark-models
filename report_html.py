@@ -170,6 +170,15 @@ def _gate_chain_table(gates: dict, failed_gate) -> str:
                 f"<td><span class='muted'>– not evaluated</span></td>"
                 f"<td>chain stopped at {e(failed_gate)}</td><td>—</td></tr>\n"
             )
+        elif g.get("passed") is None:
+            # Evaluated-but-no-evidence: the run's scope contained no task for
+            # this gate. Never render it as a failure.
+            rows += (
+                f"<tr><td>{e(gid)}</td>"
+                f"<td><span class='muted'>– not evaluated</span></td>"
+                f"<td>{e(g.get('reason'))}</td>"
+                f"<td>{e(g.get('threshold'))}</td></tr>\n"
+            )
         else:
             rows += (
                 f"<tr><td>{e(gid)}</td>"
@@ -571,8 +580,12 @@ def _model_section(root: dict, model: str, r: dict) -> str:
                    f"Not usable in a harness until this gate passes.")
     else:
         k = cfg.get("k") or rel.get("k") or "?"
+        skipped = r.get("unevaluated_gates") or []
+        scope = (f" Scope: {', '.join(skipped)} had no task in this run, so "
+                 f"they are not evaluated and the verdict cannot exceed "
+                 f"SUPERVISED." if skipped else "")
         verdict = (f"{e(r['tier'])} — {rel['pass_pow_k']:.0%} of tasks "
-                   f"passed on all {k} seeds.")
+                   f"passed on all {k} seeds.{scope}")
     verdict_card = (f"<div class='card'>{_tier_badge(r['tier'])} "
                     f"&nbsp; {e(verdict)}</div>")
 

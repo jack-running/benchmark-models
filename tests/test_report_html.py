@@ -61,6 +61,25 @@ def _render(report, config=None, extra=None):
     return report_html.render_agent_report(root, "fixture.json")
 
 
+def test_not_evaluated_gate_is_not_rendered_as_a_failure():
+    """An axis-filtered run leaves gates without evidence; the chain table
+    must show them as not evaluated and the card must state the scope."""
+    rep = _model_report(
+        tier="SUPERVISED",
+        gates={"G4_no_fabrication": {
+            "passed": None,
+            "reason": "fabrication axis out of scope for this run",
+            "threshold": "all k samples"}})
+    rep["unevaluated_gates"] = ["G4_no_fabrication"]
+    h = _render(rep)
+    assert "fabrication axis out of scope for this run" in h
+    assert "not evaluated" in h
+    assert "cannot exceed" in h
+    # the ✗ mark must not appear for a gate that was merely skipped
+    row = h.split("G4_no_fabrication", 1)[1][:400]
+    assert "✗" not in row
+
+
 # ── detect_kind ──────────────────────────────────────────────
 
 def test_detect_kind_shapes():

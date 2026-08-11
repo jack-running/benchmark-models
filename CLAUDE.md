@@ -100,6 +100,15 @@ pinned secondary host. Deps: `requests` only. Python 3.10+.
   verifiers require non-empty `final_text`; otherwise a killed or silent
   harness scores a free pass (omp once scored 5/5 on `g4_fabrication` with
   zero tool calls).
+- **An absent evidence set is not a failed gate.** `--axes` filters the task
+  pool, so a gate's task can be missing entirely (G4 without the fabrication
+  axis, `g1_probe_read` without the probe axis). Such a gate is
+  `passed=None` — *not evaluated* — the chain continues past it, its id lands
+  in `unevaluated_gates`, and the tier is capped below `HARNESS_READY`. Never
+  reintroduce `any([])`/`bool([]) and …` verdicts: they fabricate a negative
+  result ("probe produced no tool calls") for a measurement nobody took. G1's
+  evidence comes from the smoke stage, which always runs the probe, and is
+  threaded in via `evaluate_gates(..., probe_episodes=...)`.
 - **Parse harness events structurally, per schema.** opencode emits
   `part.tool` / `part.type == "text"` / `step_finish.part.tokens`; omp emits
   `tool_execution_start|end` / `message_end.message.content[]` /

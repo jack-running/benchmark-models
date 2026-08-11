@@ -126,7 +126,8 @@ def run_native(host, profile_map, task_pool, k, max_steps, wall_budget,
     return out
 
 
-def build_model_report(model, profile, episodes, task_by_id, k, num_ctx) -> dict:
+def build_model_report(model, profile, episodes, task_by_id, k, num_ctx,
+                       probe_episode=None) -> dict:
     rel = gates.reliability(episodes, task_by_id, k)
     axes = gates.axis_pass_pow_k(episodes, task_by_id)
     walls = sorted(e.wall_seconds for e in episodes if e.wall_seconds > 0)
@@ -134,18 +135,32 @@ def build_model_report(model, profile, episodes, task_by_id, k, num_ctx) -> dict
     p90 = walls[int(len(walls) * 0.90)] if walls else p50
     steps = [e.steps for e in episodes]
     toks = [e.prompt_tokens + e.completion_tokens for e in episodes]
-    gr = gates.evaluate_gates(profile, episodes, task_by_id)
+    # The smoke stage always runs the G1 probe, even when --axes excludes the
+    # probe task from the native pool; hand that episode to the gate so G1 is
+    # decided on the measurement that was actually taken.
+    gr = gates.evaluate_gates(profile, episodes, task_by_id,
+                              probe_episodes=[probe_episode] if probe_episode
+                              else None)
     failed = next((g.id for g in gr.values() if g.passed is False), None)
-    tier, fg = gates.tier_for(failed, rel["pass_pow_k"], axes)
+    # Gates with no evidence in this run's scope (an --axes filter skips whole
+    # tasks). They are neither passes nor failures, and they stop the run from
+    # certifying HARNESS_READY.
+    unevaluated = [g.id for g in gr.values() if g.passed is None]
+    tier, fg = gates.tier_for(failed, rel["pass_pow_k"], axes,
+                              unevaluated=unevaluated)
     gates_d = {g.id: {"passed": g.passed, "reason": g.reason,
                       "threshold": g.threshold} for g in gr.values()}
     return {
         "name": model, "tier": tier, "failed_gate": fg or failed,
+        "unevaluated_gates": unevaluated,
         "gates": gates_d, "reliability": rel, "axes": axes,
         "p50_seconds": round(p50, 2), "p90_seconds": round(p90, 2),
         "median_steps": statistics.median(steps) if steps else 0,
         "median_tokens": statistics.median(toks) if toks else 0,
         "episodes": [ep_to_json(e) for e in episodes],
+        # G1's evidence, so the gate stays auditable on runs whose task pool
+        # does not contain the probe task.
+        "smoke_probe": ep_to_json(probe_episode) if probe_episode else None,
         "rules": _rules_report(episodes, task_by_id),
     }
 
@@ -317,9 +332,13 @@ def print_summary(reports):
     for i, (m, r) in enumerate(order, 1):
         rel = r["reliability"]; axe = r["axes"]
         ax = "".join(f"{k}:{v:.2f} " for k, v in axe.items())
+        skipped = r.get("unevaluated_gates") or []
+        note = r["failed_gate"] or (f"(not evaluated: {','.join(skipped)})"
+                                    if skipped else "-")
         print(f"{i:<3}{m:<38}{r['tier']:<16}{rel['pass_at_1']:>7.2f} "
-              f"{rel['pass_pow_k']:>7.2f}  {r['failed_gate'] or '-'}  {ax}")
-    print("\nAxes shown as name:pass^k")
+              f"{rel['pass_pow_k']:>7.2f}  {note}  {ax}")
+    print("\nAxes shown as name:pass^k; a gate with no task in scope is "
+          "reported as not evaluated, never as a failure.")
 
 
 def main():
@@ -392,7 +411,7 @@ def main():
         smoke_eps[m] = ep
         ws.cleanup()
 
-    native_pool = {m: prof for m in probe_pool
+    native_pool = {m: probe_pool[m] for m in probe_pool
                    if len(smoke_eps[m].tool_calls) >= 1}
     print("\nSmoke dropped (G1: no tool call emitted):")
     for m in probe_pool:
@@ -432,7 +451,8 @@ def main():
     reports = {}
     for m, data in native_out.items():
         reports[m] = build_model_report(m, probe_pool[m], data["episodes"],
-                                        TASKS_BY_ID, args.samples, args.num_ctx)
+                                        TASKS_BY_ID, args.samples, args.num_ctx,
+                                        probe_episode=smoke_eps.get(m))
 
     print_summary(reports)
 
@@ -441,6 +461,10 @@ def main():
             "ollama_version": ollama_version, "host": host,
             "temperature": args.temperature, "seeds": list(range(1, args.samples + 1)),
             "k": args.samples, "num_ctx": args.num_ctx,
+            # Which axes ran. A filtered run does not exercise every task, so
+            # a gate or axis missing from a report is a scope fact, not a
+            # model result.
+            "axes": sorted(args.axes) if args.axes else "all",
             "task_suite_sha256": suite_sha256(),
             "harness_versions": harness_drivers.harness_versions(),
             "stage": "native",
@@ -449,10 +473,10 @@ def main():
             # definition change. Bump measurement_version when any of these
             # change meaning.
             # v3: models.yml pins the ollama provider to openai-completions
-            # with maxTokens 12288 + thinkingFormat qwen-chat-template, and
-            # the driver drops skills/rules. An omp Layer B number means
-            # something different than it did under v2 (v7/v8/v9), so
-            # transfer_delta must not be compared across the bump.
+            # with maxTokens 12288 and reasoning_effort "none", and the driver
+            # drops skills/rules. An omp Layer B number means something
+            # different than it did under v2 (v7/v8/v9), so transfer_delta
+            # must not be compared across the bump.
             "measurement_version": 3,
             "e2e_budget_s": harness_drivers.E2E_BUDGET_S,
             "omp_thinking": harness_drivers.OMP_THINKING,
