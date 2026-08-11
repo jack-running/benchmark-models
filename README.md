@@ -20,7 +20,9 @@ ability transfers to the actual CLI harnesses you would ship.
 Requirements: Python 3.10+, `pip install requests`, and a reachable Ollama
 server (default `http://192.168.0.149:11434`). Layer B additionally needs the
 harness binaries on `PATH`: `opencode`, `omp`, and/or `cline` (the last is
-only present if you install it).
+only present if you install it), and — for `omp` — the provider config in
+[`config/omp-models.yml`](config/omp-models.yml) installed into omp's agent
+directory (see [omp setup for Layer B](#omp-setup-for-layer-b-required)).
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the full history of this rewrite.
 Benchmark run output is written to `results/` (git-ignored) via `--json`, with
@@ -90,6 +92,56 @@ Gates run in order on Layer A. A model is elevated to a tier only if
 Wilson 95% CI on `pass@1`. Reported per axis (`probe`, `completion`, `edit`,
 `instruction`, `grounding`, `fabrication`, `recovery`) and overall.
 
+### omp setup for Layer B (required)
+
+Layer B drives the real `omp` binary, and omp's *own* provider config decides
+which API path, output reserve and thinking shape it uses against Ollama.
+Install [`config/omp-models.yml`](config/omp-models.yml) before running
+Layer B — omp reads it from its agent directory, not from this repo:
+
+```bash
+# Windows
+copy config\omp-models.yml %USERPROFILE%\.omp\agent\models.yml
+# Linux / macOS
+cp config/omp-models.yml ~/.omp/agent/models.yml
+```
+
+Adjust `baseUrl` if your Ollama host differs. Nothing belongs in
+`~/.omp/agent/config.yml`: that file is global, so `defaultThinkingLevel` or
+`providers.stream*Seconds` there would change your cloud models too. The
+shipped file only touches the `ollama` provider and one model entry.
+
+Verify the install — discovery must survive *and* the override must apply:
+
+```bash
+omp models --json > m.json
+python -c "
+import json; items = json.load(open('m.json'))['models']
+print('ollama models:', len([m for m in items if m['provider'] == 'ollama']))
+print([(m['contextWindow'], m['maxTokens']) for m in items
+       if m['id'] == 'qwen3.6-unsloth-vl-agent:27b-112k'])
+"
+```
+
+Expect your whole local fleet (51 tags on this machine — **not** 1: a
+`models:` list without `discovery:` replaces discovery instead of extending
+it) and `[(112000, 12288)]`.
+
+The benchmarked model is pulled the ordinary way; nothing is derived or
+rebuilt:
+
+```bash
+ollama pull qwen3.6-unsloth-vl-agent:27b-112k
+ollama show qwen3.6-unsloth-vl-agent:27b-112k --modelfile | grep PARAMETER
+```
+
+Its baked samplers must read `presence_penalty 0` and `min_p 0.1`;
+`contextWindow` in the config must equal the baked `num_ctx` (112000 here),
+or Ollama silently drops the oldest tokens. Note the plain `qwen3.6:27b-112k`
+tag bakes `presence_penalty 1.5` / `min_p 0`, which breaks tool calls at
+depth — it needs a sampler-corrected derived tag before it is worth
+benchmarking.
+
 ### Running
 
 ```bash
@@ -110,6 +162,27 @@ The 6 E2E tasks (Layer B subset) are `c1_add_function`, `c2_fix_failing_test`,
 `e02` (edit `src/string_utils.py`), `e03` (edit `src/report_gen.py`),
 `g4_fabrication`, and `a5_recovery` — the same 6 are run per selected harness
 in Layer B.
+
+End-to-end recipe for the tuned omp path (model pulled into Ollama, provider
+config installed as above) — one command produces both the JSON and the HTML
+report:
+
+```bash
+# smoke check: 1 sample, completion axis only (~10 min on a 27b)
+python benchmark_agent.py --stage e2e -k 1 --harness omp --axes completion \
+    --models qwen3.6-unsloth-vl-agent:27b-112k --json results/v10_ompcfg.json
+
+# the real comparison: both harnesses, 5 samples
+python benchmark_agent.py --stage e2e -k 5 --harness opencode --harness omp \
+    --models qwen3.6-unsloth-vl-agent:27b-112k --json results/v10_e2e.json
+
+# re-render a report from an existing artifact (after a renderer change)
+python report_html.py results/v10_e2e.json
+```
+
+Open `results/v10_e2e.html`. Confirm the run was fair before reading the
+delta: `timed out` must be empty, `Reasoning parts` `0`, and `loaded ctx`
+`112000`.
 
 ### Output
 
@@ -134,13 +207,17 @@ conditions it was measured under:
   `--max-time` self-cap, and opencode's worker subtree survived the kill — so
   omp lost on budget, not capability. A `timed_out` sample never finished:
   read it as "no verdict", not "failed".
-- **Thinking.** omp resolves thinking from `auto`, which picked `high` for a
+- **Thinking.** omp *requests* `off` (`harness_drivers.OMP_THINKING`) to match
+  Layer A, which sends no thinking directive — `auto` resolved to `high` for a
   27b reasoning model and burned the entire budget before the first tool call.
-  It is now *requested* as `off` (`harness_drivers.OMP_THINKING`) to match
-  Layer A, which sends no thinking directive. **A request is not a guarantee:**
-  a thinking model may keep emitting reasoning anyway, so each sample also
-  records `thinking_parts` — the reasoning the model actually produced. Trust
-  that column over `thinking_level`.
+  **A request is not a guarantee**, and on Ollama two of the three obvious
+  switches do nothing: `--thinking off` sends no reasoning parameter at all,
+  and Ollama's `/v1` ignores `chat_template_kwargs.enable_thinking` (measured:
+  a 531-character `reasoning` field came back regardless). The switch that
+  works is `reasoning_effort: "none"`, shipped as `compat.extraBody` in
+  `config/omp-models.yml` — measured reasoning length 0, and `thinking_parts`
+  33 → 0 over a k=1 Layer B run. Each sample records `thinking_parts`, the
+  reasoning the model actually produced; trust it over `thinking_level`.
 - **Context.** Neither harness can set Ollama's runtime `num_ctx` — both speak
   an OpenAI-compatible API — so the harness phase runs at the model's **default
   window** while Layer A runs at `--num-ctx`. opencode's *client-side* budget is
@@ -155,10 +232,16 @@ conditions it was measured under:
   check `timed_out` and `thinking_parts` first.
 - **Compaction.** `compactions > 0` means the harness dropped earlier context,
   frequently the tool output the task depended on.
-- **Throughput.** A harness can simply be too slow for a given model. Measured:
-  a trivial one-file task through omp on `qwen3.6-unsloth-vl-agent:27b-112k`
-  took **598 s**, so no task finished inside a 300 s budget (30/30 timeouts)
-  while opencode completed the same tasks in 45–300 s.
+- **Throughput.** A harness can simply be too slow for a given model — but
+  check the harness plumbing first. On `qwen3.6-unsloth-vl-agent:27b-112k` a
+  trivial one-file task through omp once took **598 s**, and every Layer B run
+  died at the budget (30/30 timeouts) while opencode completed the same tasks
+  in 45–300 s. Two fixes removed that entirely: the runner no longer leaks its
+  stdin into the harness (omp's `-p` mode blocked in `readPipedInput` waiting
+  for an EOF that never arrived, so the agent loop never started and *no
+  request ever reached Ollama*), and omp now speaks `openai-completions` with
+  thinking actually off. Same task, same model: **31.8 s**; the 6 Layer B
+  tasks run in 31–125 s with 0/6 timeouts and `transfer_delta` +0.00.
 
 `config.measurement_version` records this definition. **Runs with different
 measurement versions are not comparable** on `transfer_delta` or on the

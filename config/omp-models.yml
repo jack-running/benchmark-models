@@ -1,0 +1,48 @@
+# omp provider configuration for Layer B against Ollama.
+#
+# Install by copying this file to omp's agent directory (it is read from
+# there, not from this repo):
+#
+#   Windows : %USERPROFILE%\.omp\agent\models.yml
+#   Linux/mac: ~/.omp/agent/models.yml
+#
+# Everything here is scoped to the `ollama` provider and to one model entry,
+# so cloud models configured in ~/.omp/agent/config.yml are unaffected. Do NOT
+# move any of it into config.yml: `defaultThinkingLevel` and
+# `providers.stream*Seconds` are global and would change cloud sessions too.
+#
+# Verified on omp 17.2.10 + Ollama 0.32.7/0.32.8.
+providers:
+  ollama:
+    # Point at the Ollama host used by the benchmark. /v1 is required for the
+    # OpenAI-compatible path.
+    baseUrl: http://192.168.0.149:11434/v1
+    auth: none
+    # Default for this provider was openai-responses, which the field report
+    # ties to recurring stream-closed / length-truncated responses on Ollama.
+    api: openai-completions
+    # MUST be kept: without it the models: list REPLACES discovery and the
+    # other ~50 local tags disappear from omp.
+    discovery:
+      type: ollama
+    models:
+      - id: qwen3.6-unsloth-vl-agent:27b-112k
+        name: Qwen3.6 27B VL Agent (112k)
+        # Must equal the tag's baked num_ctx exactly; a larger value makes
+        # Ollama silently drop the oldest tokens, system prompt included.
+        contextWindow: 112000
+        # omp's registry reports 32768 for this model, an output reserve as
+        # large as the whole window a 32768 pin would give. 12288 leaves
+        # ~100k input budget at a 112000 window.
+        maxTokens: 12288
+        compat:
+          # Keep omp's idle watchdog from aborting a slow prefill before the
+          # benchmark's own budget does.
+          streamIdleTimeoutMs: 1800000
+          # Thinking suppression. Ollama's /v1 IGNORES chat_template_kwargs
+          # (verified: enable_thinking=false still returned a 531-char
+          # reasoning field), and omp's "off" level sends no reasoning param
+          # at all, so the model kept thinking. reasoning_effort "none" is the
+          # one switch this host honors (verified: reasoning length 0).
+          extraBody:
+            reasoning_effort: "none"

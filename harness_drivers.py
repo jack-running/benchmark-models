@@ -165,8 +165,15 @@ def _run_proc(cmd: list, cwd: str, env: dict, timeout_s: int,
     else:
         kwargs["start_new_session"] = True
     start = time.perf_counter()
-    proc = subprocess.Popen(cmd, cwd=cwd, env=env, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, **kwargs)
+    # stdin=DEVNULL: omp's -p mode reads piped stdin whenever stdin is not a
+    # tty and waits for an EOF that an inherited pipe never delivers, so the
+    # agent loop never starts and every run dies at the budget (verified:
+    # "Reading prompt from piped stdin (waiting for EOF)" for 1900 s with no
+    # request reaching Ollama). No harness takes runner stdin, so DEVNULL is
+    # correct for all of them.
+    proc = subprocess.Popen(cmd, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            **kwargs)
     try:
         stdout, stderr = proc.communicate(timeout=timeout_s)
         hi.exit_code = proc.returncode
@@ -570,13 +577,23 @@ class OmpDriver(HarnessDriver):
         if window:
             env["OLLAMA_CONTEXT_LENGTH"] = str(window)
             self.context_budget = window
+        # Process-scoped: omp's own watchdogs must never fire before the
+        # harness budget, and must never leak into the user's interactive
+        # cloud sessions (config.yml stays byte-identical).
+        env["PI_OPENAI_STREAM_FIRST_EVENT_TIMEOUT_MS"] = str(int(timeout_s * 1000))
+        env["PI_OPENAI_STREAM_IDLE_TIMEOUT_MS"] = str(int(timeout_s * 1000))
         tag = _tagged(f"omp_{model.replace(':','_')}", run_tag)
         # No --max-time: the outer budget plus tree-kill governs every harness
         # identically. --max-time made omp the only harness that stopped its
         # own agent loop at the budget.
+        # --no-skills/--no-rules: omp's preamble measured ~10-21k tokens vs
+        # opencode's ~7-8k, and TTFT scales with prompt length, so the skill
+        # and rule preambles are pure Layer B overhead. Recorded in
+        # config.omp_flags so the choice is auditable.
         cmd = [binp, "-p", "--mode", "json", "--model", f"ollama/{model}",
                "--cwd", str(ws.root), "--auto-approve", "--no-session",
-               "--thinking", self.thinking, prompt]
+               "--thinking", self.thinking, "--no-skills", "--no-rules",
+               prompt]
         hi = _run_proc(cmd, str(ws.root), env, timeout_s, self.data_dir, tag)
         hi.context_budget = self.context_budget
         return _absorb_events(hi)

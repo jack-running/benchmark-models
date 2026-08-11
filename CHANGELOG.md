@@ -6,6 +6,90 @@ the project is pre-1.0, so the current series is `0.x.y`.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-08-11 — omp Layer B actually runs (stdin fix + provider config)
+
+omp's Layer B result was an artifact of the runner, not of the model. Fixing
+it moved `transfer_delta` on `qwen3.6-unsloth-vl-agent:27b-112k` from
+**−0.67 with 30/30 budget kills to +0.00 with 0/6**, and a trivial one-file
+task from **598 s to 31.8 s**.
+
+### Fixed
+
+- **The runner leaked its stdin into every harness** (`harness_drivers.py`,
+  `_run_proc`). `Popen` piped stdout/stderr but left `stdin` inherited, and
+  omp's `-p` mode reads piped stdin whenever stdin is not a tty — so it blocked
+  in phase `readPipedInput` waiting for an EOF that never arrived. Measured
+  directly: **1900 s in that phase with zero requests reaching Ollama**, i.e.
+  the agent loop never started and the run could only ever end as a budget
+  kill. This, not sampler or context tuning, is what produced 30/30 omp
+  timeouts in v5/v7/v9. Now `stdin=subprocess.DEVNULL`; no harness consumes
+  runner stdin, so it applies to all of them.
+
+### Added
+
+- `config/omp-models.yml` — **new.** omp provider config for Layer B, copied
+  to `~/.omp/agent/models.yml`. Scoped to the `ollama` provider and one model
+  entry, so cloud models are untouched:
+  - `api: openai-completions` (the provider default was `openai-responses`,
+    tied to stream-closed / length-truncated responses on Ollama),
+  - `discovery.type: ollama` kept — without it a `models:` list *replaces*
+    discovery and the other ~50 local tags vanish from omp,
+  - `contextWindow: 112000` (must equal the tag's baked `num_ctx`),
+    `maxTokens: 12288` (omp's registry reports a 32768 output reserve — as
+    large as the entire window a 32768 pin would give),
+  - `compat.streamIdleTimeoutMs: 1800000`,
+  - `compat.extraBody.reasoning_effort: "none"` — see below.
+- `OmpDriver.run` sets `PI_OPENAI_STREAM_FIRST_EVENT_TIMEOUT_MS` and
+  `PI_OPENAI_STREAM_IDLE_TIMEOUT_MS` to the harness budget, **process-scoped**
+  so omp's watchdogs can never fire before the budget and never leak into
+  interactive cloud sessions.
+- omp is invoked with `--no-skills --no-rules`: its preamble measured ~10–21k
+  tokens against opencode's ~7–8k, and TTFT scales with prompt length.
+- `config` records `omp_api`, `omp_flags`, `omp_max_tokens` so a report states
+  which omp configuration produced a `transfer_delta`.
+- README: an **omp setup for Layer B** section (install + verification
+  one-liner), and an end-to-end recipe for running the benchmark and the HTML
+  report against a freshly pulled model.
+
+### Changed
+
+`measurement_version: 3`. v2 runs (v7/v8/v9) are **not comparable** on
+`transfer_delta`: omp now reaches the model at all, runs without skills/rules,
+and does not think.
+
+- **Thinking suppression is real now, and two obvious switches are dead ends.**
+  `--thinking off` sends no reasoning parameter at all, and Ollama's `/v1`
+  **ignores `chat_template_kwargs`** (measured: `enable_thinking: false` still
+  returned a 531-character `reasoning` field). Baking the flag into a derived
+  tag is also impossible: `ollama show --modelfile` emits
+  `TEMPLATE {{ .Prompt }}`, not the model's 8057-character Jinja template, and
+  Modelfile `TEMPLATE` is Go-only — feeding the real Jinja back to
+  `ollama create` fails with `template error: function "content" not defined`,
+  and building from the exported file as-is would have silently produced a
+  passthrough-template tag. The one switch this host honors is
+  `reasoning_effort: "none"` (measured reasoning length 0), shipped as
+  per-model `compat.extraBody`. Layer B `thinking_parts`: **33 → 0**.
+- `E2E_BUDGET_S` stays **300**: the post-fix probe is 36.4 s, far under the
+  120 s threshold that would have justified raising it.
+
+### Verification
+
+- `python -m pytest tests/ -q` → **67 passed**.
+- `omp models --json` → 590 total / **51 ollama** models (unchanged), tuned
+  entry `112000 / 12288` — discovery survived the `models:` list.
+- Layer B `k=1`, completion axis, `qwen3.6-unsloth-vl-agent:27b-112k`:
+  `openai-completions` present in the event stream and `openai-responses`
+  absent; `thinking_parts` 0; 6/6 samples finished in 30.9–125.0 s;
+  `transfer_delta` **+0.00**.
+- No history loss: max **23,882** total tokens across 116 omp requests against
+  a **112,000** loaded window (`ollama ps`, `server_context: 112000`).
+  (Ollama's `server.log` no longer records request lines on this host, so the
+  planned `truncated = 1` grep was replaced by this direct token evidence.)
+- **Cloud untouched** — the acceptance gate: `~/.omp/agent/config.yml` sha256
+  `acdce014…67ec6` identical before and after, and a live
+  `opencode-zen/deepseek-v4-flash-free` call returned normally. No global knob
+  (`defaultThinkingLevel`, `providers.stream*Seconds`) was written.
+
 ## [0.2.0] — 2026-08-10 — HTML reports + fair Layer B measurement
 
 HTML reporting for every benchmark, plus a set of Layer B measurement fixes

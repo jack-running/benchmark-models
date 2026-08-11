@@ -54,6 +54,12 @@ pinned secondary host. Deps: `requests` only. Python 3.10+.
   codec (`subprocess.run(..., text=True)` uses cp1252 and crashes on byte
   `0x9d`). Capture **bytes** and decode `utf-8, errors="replace"` yourself
   (see `harness_drivers._run_proc`).
+- **Never let a harness inherit the runner's stdin.** `_run_proc` passes
+  `stdin=subprocess.DEVNULL`. omp's `-p` mode reads piped stdin whenever stdin
+  is not a tty and waits for an EOF an inherited pipe never delivers: measured
+  1900 s stuck in phase `readPipedInput` with **no request reaching Ollama**,
+  which is what produced the 30/30 omp "timeouts" in v5/v7/v9. A harness that
+  looks pathologically slow is a plumbing suspect first.
 - `SKIP_MODELS = {"qwen3-embedding:8b", "deepseek-ocr:latest"}` — never run
   these (non-generative).
 - **Layer B must be measured fairly, or the delta is meaningless.** All
@@ -65,10 +71,21 @@ pinned secondary host. Deps: `requests` only. Python 3.10+.
 - **omp thinking is requested, not guaranteed** (`OMP_THINKING = "off"`):
   `auto` resolved to `high` on a 27b model and consumed the whole budget
   before the first tool call, while Layer A sends no thinking directive.
-  Measured caveat: a thinking model keeps emitting reasoning even with `off`,
-  so `thinking_level` records what was *asked* and `thinking_parts` records
-  what the model actually produced. Never read `thinking_level` alone as proof
-  that a run did not reason.
+  `thinking_level` records what was *asked*; `thinking_parts` records what the
+  model actually produced — never read the former alone as proof that a run
+  did not reason. On Ollama, `--thinking off` alone sends no reasoning param
+  and `/v1` ignores `chat_template_kwargs`; only
+  `compat.extraBody.reasoning_effort: "none"` (see `config/omp-models.yml`)
+  actually suppresses it. Baking it into a derived tag is not an option:
+  `ollama show --modelfile` does not emit the model's Jinja template and
+  Modelfile `TEMPLATE` is Go-only.
+- **omp's provider config lives in `config/omp-models.yml`**, installed to
+  `~/.omp/agent/models.yml`. Keep every local-model knob per-provider or
+  per-model; `~/.omp/agent/config.yml` is global and shared with the user's
+  cloud models, so `defaultThinkingLevel` and `providers.stream*Seconds` are
+  off limits. Timeouts that must follow the harness budget go in
+  `OmpDriver.run`'s process env (`PI_OPENAI_STREAM_*_TIMEOUT_MS`). A `models:`
+  list without `discovery:` **replaces** discovery — keep `discovery.type`.
 - **Never set omp's context from `num_ctx`.** omp couples its window to a
   32768 output reserve that its config surface does not let you lower, so
   `window == 32768` leaves zero input budget and triggers a compaction loop

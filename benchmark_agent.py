@@ -448,10 +448,18 @@ def main():
             # Recorded so runs are never silently compared across a
             # definition change. Bump measurement_version when any of these
             # change meaning.
-            "measurement_version": 2,
+            # v3: models.yml pins the ollama provider to openai-completions
+            # with maxTokens 12288 + thinkingFormat qwen-chat-template, and
+            # the driver drops skills/rules. An omp Layer B number means
+            # something different than it did under v2 (v7/v8/v9), so
+            # transfer_delta must not be compared across the bump.
+            "measurement_version": 3,
             "e2e_budget_s": harness_drivers.E2E_BUDGET_S,
             "omp_thinking": harness_drivers.OMP_THINKING,
             "omp_context": args.omp_context,
+            "omp_api": "openai-completions",
+            "omp_flags": ["--no-skills", "--no-rules"],
+            "omp_max_tokens": 12288,
             # Layer A sends num_ctx explicitly; no harness can set Ollama's
             # runtime num_ctx (both speak an OpenAI-compatible API), so the
             # harness context is the model default. Recorded per sample as
